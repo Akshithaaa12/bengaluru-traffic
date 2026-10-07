@@ -1,0 +1,39 @@
+# Project settings. No secrets here -- API keys live in .env / GitHub Secrets.
+
+study_area:
+  name: South-East Bengaluru
+  areas:
+    - Koramangala
+    - HSR Layout
+    - Silk Board
+    - ORR-Bellandur
+    - Marathahalli
+    - Sarjapur Road
+    - Electronic City corridor
+  # [south, west, north, east] -- rough bbox, refine after EDA
+  bbox: [12.82, 77.58, 12.98, 77.75]
+
+# Monitored road segments (OSM edge ids matched from TomTom points). Filled in later.
+segments: []
+
+# speed_ratio = current_speed / free_flow_speed
+# Low: ratio >= low | Moderate: severe <= ratio < low | Severe: ratio < severe
+thresholds:
+  low: 0.75
+  severe: 0.50
+
+# Paths are relative to the project root.
+paths:
+  raw:
+    traffic_api: data/raw/traffic_api
+    weather: data/raw/weather
+    road_network: data/raw/road_network
+    btp: data/raw/btp
+    calendar: data/raw/calendar
+  staging: data/staging
+  curated: data/curated
+  quarantine: data/quarantine
+  reports: reports
+
+collection:
+  interval_minutes: 15

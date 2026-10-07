@@ -59,7 +59,7 @@ Compare congestion-aware route vs shortest-distance route: travel-time saving ov
 ## Repo layout
 ```
 config/            settings.yaml (segments, thresholds, paths) — no secrets
-data/raw/<source>/ data/staging/  data/curated/  data/quarantine/   (data/ is git-ignored except raw traffic_api)
+data/raw/<source>/ data/staging/  data/curated/  data/quarantine/   (git: data/raw/ and data/quarantine/ are tracked; data/staging/* and data/curated/* are ignored except .gitkeep; data/raw/road_network/*.graphml is ignored)
 src/ingestion/     one module per source
 src/processing/    clean, schema-map, integrate, dq_checks
 src/features/      build_features.py

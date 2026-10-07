@@ -4,6 +4,13 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 mlruns/
-data/staging/
-data/curated/
 .DS_Store
+
+# Derived zones: ignore contents, keep the folder via .gitkeep
+data/staging/*
+data/curated/*
+!data/staging/.gitkeep
+!data/curated/.gitkeep
+
+# Large, regenerable OSM graphs
+data/raw/road_network/*.graphml
