@@ -1,8 +1,8 @@
 """Collect one TomTom Flow Segment snapshot for every segment in settings.yaml.
 
 One run writes one raw file (append-only, never overwritten):
-``data/raw/traffic_api/YYYY-MM-DD/run_YYYYMMDDTHHMMZ.json``. Calls that still fail after retries
-go to ``data/quarantine/traffic_api/run_YYYYMMDDTHHMMZ.json`` and the run carries on.
+``data/raw/traffic_api/YYYY-MM-DD/run_YYYYMMDDTHHMMZ.json.gz`` (compact JSON, gzipped). Calls that still fail after retries
+go to ``data/quarantine/traffic_api/run_YYYYMMDDTHHMMZ.json.gz`` and the run carries on.
 
 The API key and the full request URL are never logged or saved.
 
@@ -10,6 +10,7 @@ Run: ``python -m src.ingestion.tomtom_collector``
 """
 from __future__ import annotations
 
+import gzip
 import json
 import sys
 import time
@@ -113,11 +114,15 @@ def _success_record(key: str, request_ts: datetime, status: int, body: dict[str,
     }
 
 
-def _write_json(path: Path, records: list[dict[str, Any]]) -> None:
-    """Write via a temp file so a crash never leaves a half-written raw file."""
+def _write_json_gz(path: Path, records: list[dict[str, Any]]) -> None:
+    """Write compact, gzipped JSON via a temp file so a crash never leaves a half-written file.
+
+    ``mtime=0`` keeps the gzip bytes deterministic for identical content.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(records, indent=2), encoding="utf-8")
+    payload = json.dumps(records, separators=(",", ":")).encode("utf-8")
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_bytes(gzip.compress(payload, mtime=0))
     tmp.replace(path)
 
 
@@ -136,8 +141,8 @@ def run_once(
     """
     started = started or _now()
     stamp = started.strftime("%Y%m%dT%H%MZ")
-    raw_path = raw_root / started.strftime("%Y-%m-%d") / f"run_{stamp}.json"
-    if raw_path.exists():
+    raw_path = raw_root / started.strftime("%Y-%m-%d") / f"run_{stamp}.json.gz"
+    if raw_path.exists() or raw_path.with_name(f"run_{stamp}.json").exists():
         log.warning("%s already exists; skipping this run", raw_path.name)
         return 0, 0, None
 
@@ -152,9 +157,9 @@ def run_once(
             quarantined.append(failure)
 
     if records:
-        _write_json(raw_path, records)
+        _write_json_gz(raw_path, records)
     if quarantined:
-        _write_json(quarantine_root / f"run_{stamp}.json", quarantined)
+        _write_json_gz(quarantine_root / f"run_{stamp}.json.gz", quarantined)
     return len(records), len(quarantined), raw_path if records else None
 
 
