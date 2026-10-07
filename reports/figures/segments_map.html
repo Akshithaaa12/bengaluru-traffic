@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_e9d9da03e0c19384a28d915b6392747e {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_e9d9da03e0c19384a28d915b6392747e" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_e9d9da03e0c19384a28d915b6392747e = L.map(
+                "map_e9d9da03e0c19384a28d915b6392747e",
+                {
+                    center: [12.926066642857142, 77.65003635714287],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 12,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_056fa5ff003a796cf10edbd63a04cc2c = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_056fa5ff003a796cf10edbd63a04cc2c.addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+            var circle_marker_dac06efff7935cbb86abe12f423419c5 = L.circleMarker(
+                [12.915873, 77.623746],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_1950045abf96000e3771145e2b38c4d5 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_3cb06d609336fbc9289bcb1be1e1cf00 = $(`<div id="html_3cb06d609336fbc9289bcb1be1e1cf00" style="width: 100.0%; height: 100.0%;">Silk Board Junction<br>Ramp A (primary)<br>FRC2, 42/42 km/h</div>`)[0];
+                popup_1950045abf96000e3771145e2b38c4d5.setContent(html_3cb06d609336fbc9289bcb1be1e1cf00);
+            
+        
+
+        circle_marker_dac06efff7935cbb86abe12f423419c5.bindPopup(popup_1950045abf96000e3771145e2b38c4d5)
+        ;
+
+        
+    
+    
+            circle_marker_dac06efff7935cbb86abe12f423419c5.bindTooltip(
+                `<div>
+                     silk_board
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_371157942f901f0cde3bbfe0d4ffd2af = L.circleMarker(
+                [12.911984, 77.65172],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_7a2f367e970b764f955df5fa1257dc29 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_0450a8b16ca2b3c1415cbcb38d585631 = $(`<div id="html_0450a8b16ca2b3c1415cbcb38d585631" style="width: 100.0%; height: 100.0%;">HSR Layout 27th Main Road<br>17th Cross Road (secondary)<br>FRC1, 22/28 km/h</div>`)[0];
+                popup_7a2f367e970b764f955df5fa1257dc29.setContent(html_0450a8b16ca2b3c1415cbcb38d585631);
+            
+        
+
+        circle_marker_371157942f901f0cde3bbfe0d4ffd2af.bindPopup(popup_7a2f367e970b764f955df5fa1257dc29)
+        ;
+
+        
+    
+    
+            circle_marker_371157942f901f0cde3bbfe0d4ffd2af.bindTooltip(
+                `<div>
+                     hsr_27th_main
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_b57881ebd608b9d4d61dcd7721e899c9 = L.circleMarker(
+                [12.924662, 77.67409],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_cd24b2bccf39336ada3dbfc2f930b9e7 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_3f7a2b62cbcff04d5cee73392c4bd1ce = $(`<div id="html_3f7a2b62cbcff04d5cee73392c4bd1ce" style="width: 100.0%; height: 100.0%;">Bellandur Outer Ring Road<br>Marathahalli Underpass (trunk)<br>FRC1, 42/42 km/h</div>`)[0];
+                popup_cd24b2bccf39336ada3dbfc2f930b9e7.setContent(html_3f7a2b62cbcff04d5cee73392c4bd1ce);
+            
+        
+
+        circle_marker_b57881ebd608b9d4d61dcd7721e899c9.bindPopup(popup_cd24b2bccf39336ada3dbfc2f930b9e7)
+        ;
+
+        
+    
+    
+            circle_marker_b57881ebd608b9d4d61dcd7721e899c9.bindTooltip(
+                `<div>
+                     bellandur_orr
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_aa19f4bb518804a848537fe04e9124b4 = L.circleMarker(
+                [12.956756, 77.704646],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_9762b84053f7488d56f64291481e6301 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_f1f77fd77f47ce7f74f2b8d81ab00eb1 = $(`<div id="html_f1f77fd77f47ce7f74f2b8d81ab00eb1" style="width: 100.0%; height: 100.0%;">Marathahalli Bridge<br>Varthur Road (primary)<br>FRC2, 35/35 km/h</div>`)[0];
+                popup_9762b84053f7488d56f64291481e6301.setContent(html_f1f77fd77f47ce7f74f2b8d81ab00eb1);
+            
+        
+
+        circle_marker_aa19f4bb518804a848537fe04e9124b4.bindPopup(popup_9762b84053f7488d56f64291481e6301)
+        ;
+
+        
+    
+    
+            circle_marker_aa19f4bb518804a848537fe04e9124b4.bindTooltip(
+                `<div>
+                     marathahalli_bridge
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_39d7600b7acf1cba72638de1cc26d6bf = L.circleMarker(
+                [12.938317, 77.697783],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_098272324c2d487f31c95452b713b27c = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_f23c1d2d7feea65ceeb9fb8a5e5de4b5 = $(`<div id="html_f23c1d2d7feea65ceeb9fb8a5e5de4b5" style="width: 100.0%; height: 100.0%;">Kadubeesanahalli<br>Gear School road (secondary)<br>FRC4, 23/24 km/h</div>`)[0];
+                popup_098272324c2d487f31c95452b713b27c.setContent(html_f23c1d2d7feea65ceeb9fb8a5e5de4b5);
+            
+        
+
+        circle_marker_39d7600b7acf1cba72638de1cc26d6bf.bindPopup(popup_098272324c2d487f31c95452b713b27c)
+        ;
+
+        
+    
+    
+            circle_marker_39d7600b7acf1cba72638de1cc26d6bf.bindTooltip(
+                `<div>
+                     kadubeesanahalli
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_64ce92791f896bbe341fc46c6bed35ff = L.circleMarker(
+                [12.92066, 77.665197],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_4b0cc4341ba93010ae8abc18386dc078 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_7808ac0d73603951736437663cf1d6d3 = $(`<div id="html_7808ac0d73603951736437663cf1d6d3" style="width: 100.0%; height: 100.0%;">Iblur Junction<br>Sarjapura Road (primary)<br>FRC1, 42/42 km/h</div>`)[0];
+                popup_4b0cc4341ba93010ae8abc18386dc078.setContent(html_7808ac0d73603951736437663cf1d6d3);
+            
+        
+
+        circle_marker_64ce92791f896bbe341fc46c6bed35ff.bindPopup(popup_4b0cc4341ba93010ae8abc18386dc078)
+        ;
+
+        
+    
+    
+            circle_marker_64ce92791f896bbe341fc46c6bed35ff.bindTooltip(
+                `<div>
+                     iblur_junction
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1e8e27e4e89bc455bb5bd6e1501ebe04 = L.circleMarker(
+                [12.934928, 77.612106],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_a84caa3cdad761b683051748071d02fc = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_3ebb7237c518b50e2283f49a7bd05b76 = $(`<div id="html_3ebb7237c518b50e2283f49a7bd05b76" style="width: 100.0%; height: 100.0%;">Forum Mall Koramangala<br>Hosur Road (primary)<br>FRC2, 26/26 km/h</div>`)[0];
+                popup_a84caa3cdad761b683051748071d02fc.setContent(html_3ebb7237c518b50e2283f49a7bd05b76);
+            
+        
+
+        circle_marker_1e8e27e4e89bc455bb5bd6e1501ebe04.bindPopup(popup_a84caa3cdad761b683051748071d02fc)
+        ;
+
+        
+    
+    
+            circle_marker_1e8e27e4e89bc455bb5bd6e1501ebe04.bindTooltip(
+                `<div>
+                     forum_mall
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_48bd7b348eca09bcfe533dd139146d96 = L.circleMarker(
+                [12.924655, 77.618349],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_e2821925d351b1f82776caf9b186bafc = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_7cd91eccd8d7285e737e923a2089fbe0 = $(`<div id="html_7cd91eccd8d7285e737e923a2089fbe0" style="width: 100.0%; height: 100.0%;">Bommanahalli Hosur Road<br>Mahayogi Vemana Road (primary)<br>FRC2, 30/30 km/h</div>`)[0];
+                popup_e2821925d351b1f82776caf9b186bafc.setContent(html_7cd91eccd8d7285e737e923a2089fbe0);
+            
+        
+
+        circle_marker_48bd7b348eca09bcfe533dd139146d96.bindPopup(popup_e2821925d351b1f82776caf9b186bafc)
+        ;
+
+        
+    
+    
+            circle_marker_48bd7b348eca09bcfe533dd139146d96.bindTooltip(
+                `<div>
+                     bommanahalli
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_5d8a41445b0dd81fbd4a39d90aa44f87 = L.circleMarker(
+                [12.90944, 77.627321],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_f957ae734ab1eab81262934f2d52fdfd = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_aeaab1a1963347fd1ed7525f8bada9b7 = $(`<div id="html_aeaab1a1963347fd1ed7525f8bada9b7" style="width: 100.0%; height: 100.0%;">Electronic City Flyover<br>Hosur Road (trunk)<br>FRC1, 40/40 km/h</div>`)[0];
+                popup_f957ae734ab1eab81262934f2d52fdfd.setContent(html_aeaab1a1963347fd1ed7525f8bada9b7);
+            
+        
+
+        circle_marker_5d8a41445b0dd81fbd4a39d90aa44f87.bindPopup(popup_f957ae734ab1eab81262934f2d52fdfd)
+        ;
+
+        
+    
+    
+            circle_marker_5d8a41445b0dd81fbd4a39d90aa44f87.bindTooltip(
+                `<div>
+                     ec_flyover
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_f0fca8a463470f4a92454bdd90714afc = L.circleMarker(
+                [12.889984, 77.639313],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_0be5ad151b46b9d8070af773655fed60 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_c8d1bf796914a5ed5e853f73a5fbd63c = $(`<div id="html_c8d1bf796914a5ed5e853f73a5fbd63c" style="width: 100.0%; height: 100.0%;">Kudlu Gate<br>Hosur Road (trunk)<br>FRC2, 43/43 km/h</div>`)[0];
+                popup_0be5ad151b46b9d8070af773655fed60.setContent(html_c8d1bf796914a5ed5e853f73a5fbd63c);
+            
+        
+
+        circle_marker_f0fca8a463470f4a92454bdd90714afc.bindPopup(popup_0be5ad151b46b9d8070af773655fed60)
+        ;
+
+        
+    
+    
+            circle_marker_f0fca8a463470f4a92454bdd90714afc.bindTooltip(
+                `<div>
+                     kudlu_gate
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_64d9eaf14398ceb8517cea4571784d2f = L.circleMarker(
+                [12.900608, 77.675522],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_c0bac0b084a850f260492a85f4e72bab = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_e725038dd3ccc7c852aeae8cda72fa6d = $(`<div id="html_e725038dd3ccc7c852aeae8cda72fa6d" style="width: 100.0%; height: 100.0%;">Haralur Road<br>Central Jail Road (secondary)<br>FRC4, 26/26 km/h</div>`)[0];
+                popup_c0bac0b084a850f260492a85f4e72bab.setContent(html_e725038dd3ccc7c852aeae8cda72fa6d);
+            
+        
+
+        circle_marker_64d9eaf14398ceb8517cea4571784d2f.bindPopup(popup_c0bac0b084a850f260492a85f4e72bab)
+        ;
+
+        
+    
+    
+            circle_marker_64d9eaf14398ceb8517cea4571784d2f.bindTooltip(
+                `<div>
+                     haralur_road
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_0db9aace41e938aed778fee6be891983 = L.circleMarker(
+                [12.961491, 77.641687],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_6ba2c4323b916ec957cbeba0ac126d70 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_e4f1b37184df84ab4d22341b8e5380e5 = $(`<div id="html_e4f1b37184df84ab4d22341b8e5380e5" style="width: 100.0%; height: 100.0%;">Domlur Flyover<br>100 Feet Road (primary)<br>FRC2, 27/27 km/h</div>`)[0];
+                popup_6ba2c4323b916ec957cbeba0ac126d70.setContent(html_e4f1b37184df84ab4d22341b8e5380e5);
+            
+        
+
+        circle_marker_0db9aace41e938aed778fee6be891983.bindPopup(popup_6ba2c4323b916ec957cbeba0ac126d70)
+        ;
+
+        
+    
+    
+            circle_marker_0db9aace41e938aed778fee6be891983.bindTooltip(
+                `<div>
+                     domlur_flyover
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_553f7b386dfdb0fd3d49beaf84f567fe = L.circleMarker(
+                [12.959106, 77.659569],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_fe5023d5d79856e9fba6edbd5d3d9c0c = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_29c69b1c2e4502c93785d77b48589286 = $(`<div id="html_29c69b1c2e4502c93785d77b48589286" style="width: 100.0%; height: 100.0%;">HAL Old Airport Road<br>HAL Old Airport Road (primary)<br>FRC2, 35/35 km/h</div>`)[0];
+                popup_fe5023d5d79856e9fba6edbd5d3d9c0c.setContent(html_29c69b1c2e4502c93785d77b48589286);
+            
+        
+
+        circle_marker_553f7b386dfdb0fd3d49beaf84f567fe.bindPopup(popup_fe5023d5d79856e9fba6edbd5d3d9c0c)
+        ;
+
+        
+    
+    
+            circle_marker_553f7b386dfdb0fd3d49beaf84f567fe.bindTooltip(
+                `<div>
+                     hal_old_airport_rd
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1132ad8ea9afc8c42b6e275777af1a65 = L.circleMarker(
+                [12.916469, 77.60946],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#c0392b", "fillOpacity": 0.9, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 3}
+            ).addTo(map_e9d9da03e0c19384a28d915b6392747e);
+        
+    
+        var popup_681b04690e9555118b3e35bfea3d8b3d = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_b7e5359619afcef06cb84651feae0166 = $(`<div id="html_b7e5359619afcef06cb84651feae0166" style="width: 100.0%; height: 100.0%;">Udupi Garden BTM Layout<br>Outer Ring Road (trunk)<br>FRC4, 41/41 km/h</div>`)[0];
+                popup_681b04690e9555118b3e35bfea3d8b3d.setContent(html_b7e5359619afcef06cb84651feae0166);
+            
+        
+
+        circle_marker_1132ad8ea9afc8c42b6e275777af1a65.bindPopup(popup_681b04690e9555118b3e35bfea3d8b3d)
+        ;
+
+        
+    
+    
+            circle_marker_1132ad8ea9afc8c42b6e275777af1a65.bindTooltip(
+                `<div>
+                     udupi_garden
+                 </div>`,
+                {
+  "permanent": true,
+  "sticky": true,
+}
+            );
+        
+</script>
+</html>

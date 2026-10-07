@@ -14,7 +14,85 @@ study_area:
   bbox: [12.82, 77.58, 12.98, 77.75]
 
 # Monitored road segments (OSM edge ids matched from TomTom points). Filled in later.
-segments: []
+segments:
+  - segment_key: silk_board
+    name: Silk Board Junction
+    lat: 12.915873
+    lon: 77.623746
+    osm_road_name: Ramp A
+    highway: primary
+  - segment_key: hsr_27th_main
+    name: HSR Layout 27th Main Road
+    lat: 12.911984
+    lon: 77.65172
+    osm_road_name: 17th Cross Road
+    highway: secondary
+  - segment_key: bellandur_orr
+    name: Bellandur Outer Ring Road
+    lat: 12.924662
+    lon: 77.67409
+    osm_road_name: Marathahalli Underpass
+    highway: trunk
+  - segment_key: marathahalli_bridge
+    name: Marathahalli Bridge
+    lat: 12.956756
+    lon: 77.704646
+    osm_road_name: Varthur Road
+    highway: primary
+  - segment_key: kadubeesanahalli
+    name: Kadubeesanahalli
+    lat: 12.938317
+    lon: 77.697783
+    osm_road_name: Gear School road
+    highway: secondary
+  - segment_key: iblur_junction
+    name: Iblur Junction
+    lat: 12.92066
+    lon: 77.665197
+    osm_road_name: Sarjapura Road
+    highway: primary
+  - segment_key: forum_mall
+    name: Forum Mall Koramangala
+    lat: 12.934928
+    lon: 77.612106
+    osm_road_name: Hosur Road
+    highway: primary
+  - segment_key: bommanahalli
+    name: Bommanahalli Hosur Road
+    lat: 12.924655
+    lon: 77.618349
+    osm_road_name: Mahayogi Vemana Road
+    highway: primary
+  - segment_key: ec_flyover
+    name: Electronic City Flyover
+    lat: 12.90944
+    lon: 77.627321
+    osm_road_name: Hosur Road
+    highway: trunk
+  - segment_key: kudlu_gate
+    name: Kudlu Gate
+    lat: 12.889984
+    lon: 77.639313
+    osm_road_name: Hosur Road
+    highway: trunk
+  - segment_key: domlur_flyover
+    name: Domlur Flyover
+    lat: 12.961491
+    lon: 77.641687
+    osm_road_name: 100 Feet Road
+    highway: primary
+  - segment_key: hal_old_airport_rd
+    name: HAL Old Airport Road
+    lat: 12.959106
+    lon: 77.659569
+    osm_road_name: HAL Old Airport Road
+    highway: primary
+  - segment_key: udupi_garden
+    name: Udupi Garden BTM Layout
+    lat: 12.916469
+    lon: 77.60946
+    osm_road_name: Outer Ring Road
+    highway: trunk
 
 # speed_ratio = current_speed / free_flow_speed
 # Low: ratio >= low | Moderate: severe <= ratio < low | Severe: ratio < severe
