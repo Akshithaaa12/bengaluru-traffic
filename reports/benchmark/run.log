@@ -1,0 +1,21 @@
+2026-10-08 01:36:18,550 INFO __main__: rows: {'train': 880437, 'val': 184544, 'test': 172519}
+2026-10-08 01:36:19,525 INFO __main__: logistic_regression fit in 1s
+2026-10-08 01:36:28,928 INFO __main__: random_forest fit in 9s
+2026-10-08 01:36:38,138 INFO __main__: xgboost fit in 9s (best_iteration=299)
+
+Best model (by validation macro-F1): random_forest
+
+== test ==
+              model      n  fit_s  accuracy  macro_f1  recall_low  recall_moderate  recall_severe
+        persistence 172519  0.000     0.883     0.675       0.951            0.417          0.659
+logistic_regression 172519  1.000     0.885     0.599       0.977            0.121          0.697
+      random_forest 172519  9.400     0.899     0.689       0.977            0.343          0.666
+            xgboost 172519  9.200     0.847     0.683       0.877            0.649          0.743
+
+== val ==
+              model      n  fit_s  accuracy  macro_f1  recall_low  recall_moderate  recall_severe
+        persistence 184544  0.000     0.894     0.686       0.954            0.426          0.683
+logistic_regression 184544  1.000     0.897     0.612       0.979            0.127          0.726
+      random_forest 184544  9.400     0.910     0.704       0.979            0.358          0.689
+            xgboost 184544  9.200     0.860     0.696       0.884            0.684          0.765
+
