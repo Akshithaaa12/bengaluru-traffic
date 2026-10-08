@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from src.benchmark.download import CALENDAR_DIR, H5_PATH, WEATHER_DIR
+from src.benchmark.dq_rules import speed_failure_mask
 from src.utils.config import get_settings
 
 N_SENSORS = 40
@@ -45,7 +46,7 @@ def fill_short_gaps(col: pd.Series) -> pd.Series:
 
 def clean_speeds(raw: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """Speed 0 is a sensor failure, not a real zero: NaN + flag, then short-gap interpolation."""
-    sensor_missing = raw.eq(0) | raw.isna()
+    sensor_missing = speed_failure_mask(raw)
     valid = raw.mask(sensor_missing)
     filled = valid.apply(fill_short_gaps)
     interpolated = valid.isna() & filled.notna()
@@ -94,7 +95,13 @@ def time_features(index: pd.DatetimeIndex, holiday_dates: pd.DatetimeIndex) -> p
 
 
 def build_dataset() -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Return (row-per-sensor-timestamp table, stats for the DQ summary)."""
+    """Return (modelling rows only, stats for the DQ summary)."""
+    full, stats = build_full_table()
+    return full[full["usable"] == 1].reset_index(drop=True), stats
+
+
+def build_full_table() -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Integrated row-per-sensor-timestamp table (all rows, with flags) and stats for the DQ summary."""
     raw_all = load_raw_speeds()
     raw = pick_sensors(raw_all)
     c = clean_speeds(raw)
@@ -123,12 +130,18 @@ def build_dataset() -> tuple[pd.DataFrame, dict[str, Any]]:
     cols["weather_available"] = np.repeat(wx["weather_available"].to_numpy(), n_s)
     cols["y_now"] = to_label(ratio_np).ravel()
     cols["y"] = target.to_numpy().ravel()
+    cols["speed_mph"] = c["valid"].to_numpy(dtype="float32").ravel()
+    cols["speed_filled_mph"] = c["filled"].to_numpy(dtype="float32").ravel()
+    cols["sensor_missing"] = c["sensor_missing"].to_numpy(dtype="int8").ravel()
+    cols["interpolated"] = c["interpolated"].to_numpy(dtype="int8").ravel()
+    cols["sensor_id"] = np.tile(ratio.columns.astype(str).to_numpy(), n_t)
     cols["tpos"] = np.repeat(np.arange(n_t), n_s)
     cols["sensor"] = np.tile(np.arange(n_s), n_t)
     df = pd.DataFrame(cols)
     df["time"] = index[df["tpos"].to_numpy()]
 
     complete = df[FEATURES + ["y", "y_now"]].notna().all(axis=1)
+    df["usable"] = complete.astype("int8")
     stats = {
         "raw_all_readings": int(raw_all.size), "raw_all_zero": int(raw_all.eq(0).to_numpy().sum()),
         "n_timestamps": n_t, "n_sensors": n_s, "start": str(index.min()), "end": str(index.max()),
@@ -142,7 +155,7 @@ def build_dataset() -> tuple[pd.DataFrame, dict[str, Any]]:
         "holiday_rows": int(df["is_holiday"].sum()),
         "rows_total": int(len(df)), "rows_complete": int(complete.sum()),
     }
-    return df[complete].reset_index(drop=True), stats
+    return df, stats
 
 
 def chronological_split(df: pd.DataFrame, n_timestamps: int) -> dict[str, pd.DataFrame]:

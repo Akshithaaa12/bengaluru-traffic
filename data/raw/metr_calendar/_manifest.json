@@ -1,0 +1,27 @@
+{
+  "source": "metr_calendar",
+  "format": "CSV",
+  "ingestion_method": "python library `holidays` 0.106 (US, 2012)",
+  "url": "https://pypi.org/project/holidays/",
+  "ingested_at": "2026-10-08T01:35:37Z",
+  "files": [
+    {
+      "name": "us_holidays_2012.csv",
+      "bytes": 855
+    }
+  ],
+  "record_counts": {
+    "us_holidays_2012.csv": {
+      "rows": 12
+    }
+  },
+  "schema": {
+    "us_holidays_2012.csv": {
+      "date": "str",
+      "name": "str",
+      "source": "str",
+      "schema_version": "int64",
+      "ingested_at": "str"
+    }
+  }
+}

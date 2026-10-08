@@ -42,6 +42,11 @@ def load_predictions() -> pd.DataFrame:
 
 
 @st.cache_data
+def load_csv(name: str) -> pd.DataFrame:
+    return pd.read_csv(BENCH / name)
+
+
+@st.cache_data
 def load_shap() -> pd.DataFrame | None:
     path = BENCH / "shap_top_features.csv"
     return pd.read_csv(path) if path.exists() else None
@@ -107,22 +112,30 @@ def tab_overview() -> None:
         "the same pipeline is being applied to **Bengaluru** (South-East corridor) using live TomTom data."
     )
 
-    st.subheader("Data sources")
-    st.dataframe(pd.DataFrame([
-        ["METR-LA sensors", "HDF5 + CSV", "5-min speeds (mph), 207 loop detectors (40 used)", "data/raw/metr_la/"],
-        ["Open-Meteo weather", "JSON", "Hourly temperature, precipitation, humidity (Los Angeles)", "data/raw/metr_weather/"],
-        ["US holidays", "CSV (`holidays` lib)", "2012 federal holidays", "data/raw/metr_calendar/"],
-        ["Bengaluru TomTom live collector", "JSON (gzip)", "Flow Segment API, 13 segments, every 15 min via GitHub Actions", "data/raw/traffic_api/"],
-    ], columns=["Source", "Type", "Content", "Raw zone"]), hide_index=True, width="stretch")
-
-    st.subheader("Pipeline")
+    st.subheader("Pipeline flow")
     st.graphviz_chart(
         "digraph { rankdir=LR; node [shape=box, style=rounded, fontname=Helvetica]; "
-        'S [label="Sources"]; R [label="Raw zones\\n(append-only)"]; '
-        'C [label="Cleaning /\\nmissing-data flags"]; I [label="Integration\\n(segment, time)"]; '
-        'F [label="Features"]; M [label="Model"]; O [label="Routing"]; '
-        "S -> R -> C -> I -> F -> M -> O }"
+        'P [label="Problem"]; S [label="Sources"]; I [label="Ingestion\\n(retry + quarantine)"]; '
+        'R [label="Raw zones\\n(append-only,\\nmanifests)"]; T [label="Transform\\n(DQ rules, flags)"]; '
+        'G [label="Integrate\\n(join keys)"]; C [label="Curated\\nparquet"]; M [label="ML\\n(model, SHAP, routing)"]; '
+        "P -> S -> I -> R -> T -> G -> C -> M }"
     )
+
+    st.subheader("Data sources")
+    sources_path = BENCH / "sources.csv"
+    if sources_path.exists():
+        st.dataframe(load_csv("sources.csv"), hide_index=True, width="stretch")
+    else:
+        missing_notice(sources_path, "Run `python -m src.benchmark.manifests`.")
+    st.markdown(
+        "**Schema differences:** METR-LA is a wide HDF5 matrix (timestamp x 207 sensor columns) plus CSVs; Open-Meteo is "
+        "column-oriented JSON arrays with ISO time strings; holidays are a two-column CSV. They differ in granularity "
+        "(5 min / 1 h / 1 day), so each joins on its own key."
+    )
+    schemas = BENCH / "source_schemas.md"
+    if schemas.exists():
+        with st.expander("Per-source columns, integration keys and contributed features"):
+            st.markdown(schemas.read_text(encoding="utf-8"))
 
     st.subheader("Bengaluru live collection")
     n_files, latest, snap = load_live_snapshot()
@@ -257,12 +270,25 @@ def tab_routing() -> None:
 
 def tab_dq() -> None:
     st.header("Data quality")
+    rules_path, missing_path = BENCH / "dq_rules.csv", BENCH / "missing_by_source.csv"
+    if rules_path.exists():
+        st.subheader("DQ rules")
+        st.markdown("**Mandatory:** `sensor_id`, `timestamp`, `speed` (record rejected / sensor excluded if absent). "
+                    "**Optional:** weather and holiday (flagged, e.g. `weather_available=0`).")
+        st.dataframe(load_csv("dq_rules.csv"), hide_index=True, width="stretch")
+    else:
+        missing_notice(rules_path, "Run `python -m src.benchmark.curate`.")
+    if missing_path.exists():
+        st.subheader("Missing / failed records by source")
+        st.dataframe(load_csv("missing_by_source.csv"), hide_index=True, width="stretch")
+
     path = BENCH / "dq_summary.md"
     if not path.exists():
         missing_notice(path, "Run `python -m src.benchmark.run`.")
         return
     md = path.read_text(encoding="utf-8")
-    st.markdown(md)
+    with st.expander("Full DQ summary"):
+        st.markdown(md)
     rows = parse_dq_rows(md)
     if rows.empty:
         return

@@ -1,0 +1,9 @@
+rule_id,source,field,requirement,detection,handling
+R1,metr_la,speed,mandatory,"speed == 0 (or NaN): a loop detector reporting 0 mph is a sensor failure, never a real zero",flag sensor_missing=1 and set NaN; interpolate gaps <= 30 min (interpolated=1); exclude longer gaps
+R2,metr_la,timestamp,mandatory,"null, duplicated or not on the regular 5-min grid",reject the record (cannot be placed in time)
+R3,metr_la,sensor_id,mandatory,"missing, or no entry in sensor_locations",exclude the sensor
+R4,metr_weather,api_request,optional,"timeout, connection error, HTTP 429 or 5xx","retry x3 with exponential backoff, then quarantine; weather_available=0 for all rows"
+R5,metr_weather,"temperature_2m, precipitation, relative_humidity_2m",optional,null hourly value,weather_available=0; forward-fill <= 1 h only; rows still missing are excluded from modelling
+R6,metr_weather,join_on_hour,optional,"no weather row for floor(timestamp, 1 h)",same as R5
+R7,metr_calendar,holiday,optional,date absent from the holiday list,valid is_holiday=0 (not missing)
+R8,integration,features + target,derived,NaN in any required feature or the 30-min-ahead target (lags/rolling/target touch a long gap),exclude the row from train/val/test (kept in the curated table with usable=0)

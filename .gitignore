@@ -16,7 +16,8 @@ data/curated/*
 data/raw/road_network/*.graphml
 
 # METR-LA benchmark download (large, regenerable)
-data/raw/metr_la/
+data/raw/metr_la/*
+!data/raw/metr_la/_manifest.json
 
 # Regenerable by `python -m src.benchmark.run` (13 MB binary)
 reports/benchmark/models/*.pkl

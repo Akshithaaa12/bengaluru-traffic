@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import sys
 
+import numpy as np
 import pandas as pd
 
 from src.utils.config import project_path
@@ -15,10 +16,15 @@ BENCH = project_path("reports/benchmark")
 LIVE = project_path("data/raw/traffic_api")
 
 
+def _cell(v: object, fmt: str) -> str:
+    if isinstance(v, (int, np.integer)):
+        return f"{v:,}"
+    return fmt.format(v) if isinstance(v, (float, np.floating)) else str(v)
+
+
 def md_table(df: pd.DataFrame, fmt: str = "{:.3f}") -> str:
     head = "| " + " | ".join(df.columns) + " |\n|" + "---|" * len(df.columns)
-    body = ["| " + " | ".join(fmt.format(v) if isinstance(v, float) else str(v) for v in row) + " |"
-            for row in df.itertuples(index=False)]
+    body = ["| " + " | ".join(_cell(v, fmt) for v in row) + " |" for row in df.itertuples(index=False)]
     return "\n".join([head, *body])
 
 
@@ -34,8 +40,11 @@ def main() -> int:
     top10["share_severe"] = (top10["share_severe"] * 100).round(1).astype(str) + "%"
     top10["mean_abs_shap_severe"] = top10["mean_abs_shap_severe"].astype(float)
     route = json.loads((BENCH / "routing_meta.json").read_text())
-    dq = (BENCH / "dq_summary.md").read_text(encoding="utf-8")
     n_live = len(list(LIVE.glob("*/run_*.json*")))
+    sources = pd.read_csv(BENCH / "sources.csv")[["source", "format", "ingestion", "raw_zone", "integration_key", "why_useful"]]
+    sources.loc[sources["source"].str.startswith("Bengaluru"), "why_useful"] += f" ({n_live} raw run files so far)"
+    rules = pd.read_csv(BENCH / "dq_rules.csv")[["rule_id", "source", "field", "requirement", "detection", "handling"]]
+    missing = pd.read_csv(BENCH / "missing_by_source.csv")
 
     xgb = test[test["model"] == "xgboost"].iloc[0]
     pers = test[test["model"] == "persistence"].iloc[0]
@@ -48,24 +57,41 @@ Predict the congestion level (**Low** speed_ratio >= 0.75, **Moderate** 0.50-0.7
 randomly sampled METR-LA sensors (`random_state=42`), then compare shortest-distance routing with congestion-aware
 routing. This benchmark validates the pipeline on a public dataset while Bengaluru data is still being collected.
 
+## Pipeline
+
+**Problem -> Sources -> Ingestion -> Raw -> Transform -> Integrate -> Curated -> ML**
+
+1. *Problem:* congestion class 30 min ahead, then congestion-aware routing.
+2. *Sources:* three independent sources with different formats and keys (table below); the Bengaluru TomTom collector runs alongside.
+3. *Ingestion:* file download, REST API with retry x3 + quarantine, and a library; every raw zone has a `_manifest.json`.
+4. *Raw:* append-only, one folder per source, never merged.
+5. *Transform:* apply the DQ rules (speed 0 = failure, flags, interpolation <= 30 min, weather forward-fill <= 1 h).
+6. *Integrate:* join on `(sensor_id, timestamp_5min)`, weather on the hour, holidays on the date.
+7. *Curated:* `data/curated/metr_curated.parquet` (every row, with flags, a documented source per column: `data_dictionary.csv`).
+8. *ML:* features -> persistence / LR / RF / XGBoost -> SHAP -> routing.
+
 ## Data sources (kept separate in raw zones)
 
-| Source | Raw zone | Content |
-|---|---|---|
-| METR-LA sensors | `data/raw/metr_la/` | 5-min speeds (mph), 207 sensors, 2012-03-01 to 2012-06-27, sensor locations, road distances |
-| Open-Meteo archive | `data/raw/metr_weather/` | Hourly temperature, precipitation, humidity for Los Angeles, joined on the hour |
-| US holidays 2012 | `data/raw/metr_calendar/` | `holidays` library, joined on date |
-| Bengaluru TomTom live collector | `data/raw/traffic_api/` | Flow Segment API, 13 validated South-East Bengaluru segments, every 15 min via GitHub Actions; {n_live} raw run files at the time of writing. **Not used for modelling yet** (too little history). |
+{md_table(sources)}
 
-## Missing-data handling
+### Schema differences
 
-Speed 0 is a sensor failure, not a real zero: it is set to NaN and flagged `sensor_missing=1`. Gaps of 30 minutes or
-less are linearly interpolated (`interpolated=1`); longer gaps stay NaN and those rows are excluded from training and
-evaluation. Weather is forward-filled for at most 1 hour.
+The sources share nothing except time: METR-LA is a wide HDF5 matrix (timestamp x 207 sensor columns) plus CSVs, Open-Meteo is
+column-oriented JSON arrays with ISO time strings, and the holiday list is a two-column CSV. They have different granularity
+(5 min, 1 h, 1 day), so each joins on a different key (see [`source_schemas.md`](source_schemas.md)).
 
-{section(dq, "## Missing data", "## Modelling table")}
+## Data-quality rules
 
-Full detail: [`dq_summary.md`](dq_summary.md).
+Mandatory fields (`sensor_id`, `timestamp`, `speed`) must be present or the record/sensor is rejected or excluded; optional
+sources (weather, holiday) only enrich a row and are flagged when missing (`weather_available`).
+
+{md_table(rules)}
+
+## Missing data by source
+
+{md_table(missing)}
+
+Full detail: [`dq_summary.md`](dq_summary.md), [`missing_by_source.csv`](missing_by_source.csv).
 
 ## Models and metrics (test set, chronological 70/15/15 split)
 

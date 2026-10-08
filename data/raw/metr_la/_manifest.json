@@ -1,0 +1,62 @@
+{
+  "source": "metr_la",
+  "format": "HDF5 (speeds, wide matrix) + CSV (locations, distances) + TXT",
+  "ingestion_method": "file download (HTTP GET of a zip), unzipped unchanged",
+  "url": "https://huggingface.co/datasets/TorchSpatiotemporal/ProcessedDatasets/resolve/v1.0.0/traffic/metr_la.zip",
+  "mirror_url": "https://graphmining.ai/temporal_datasets/METR-LA.zip",
+  "ingested_at": "2026-10-08T01:34:00Z",
+  "files": [
+    {
+      "name": "distances_la.csv",
+      "bytes": 6393348
+    },
+    {
+      "name": "metr_la.h5",
+      "bytes": 11361867
+    },
+    {
+      "name": "metr_la.zip",
+      "bytes": 13078583
+    },
+    {
+      "name": "sensor_ids_la.txt",
+      "bytes": 1448
+    },
+    {
+      "name": "sensor_locations_la.csv",
+      "bytes": 6341
+    }
+  ],
+  "record_counts": {
+    "metr_la.h5": {
+      "rows": 34272,
+      "columns": 207,
+      "readings": 7094304
+    },
+    "sensor_locations_la.csv": {
+      "rows": 207
+    },
+    "distances_la.csv": {
+      "rows": 295374
+    }
+  },
+  "schema": {
+    "metr_la.h5": {
+      "index": "timestamp (datetime64[ns])",
+      "columns": "207 sensor_id columns",
+      "value_dtype": "float32",
+      "unit": "mph; 0 = sensor failure"
+    },
+    "sensor_locations_la.csv": {
+      "index": "int64",
+      "sensor_id": "int64",
+      "latitude": "float64",
+      "longitude": "float64"
+    },
+    "distances_la.csv": {
+      "from": "int64",
+      "to": "int64",
+      "cost": "float64"
+    }
+  }
+}

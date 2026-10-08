@@ -11,8 +11,11 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import zipfile
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Callable
 
 import holidays
 import pandas as pd
@@ -35,6 +38,9 @@ TIMEZONE = "America/Los_Angeles"
 METR_DIR = project_path("data/raw/metr_la")
 WEATHER_DIR = project_path("data/raw/metr_weather")
 CALENDAR_DIR = project_path("data/raw/metr_calendar")
+QUARANTINE_DIR = project_path("data/quarantine/metr_weather")
+MAX_RETRIES = 3
+BACKOFF_BASE_S = 1.0
 H5_PATH = METR_DIR / "metr_la.h5"
 
 
@@ -68,26 +74,57 @@ def metr_date_range() -> tuple[str, str]:
     return idx.min().strftime("%Y-%m-%d"), idx.max().strftime("%Y-%m-%d")
 
 
-def fetch_weather(start: str, end: str) -> None:
-    """Save the raw Open-Meteo archive response, wrapped with ingestion metadata."""
-    path = WEATHER_DIR / f"open_meteo_la_{start.replace('-', '')}_{end.replace('-', '')}.json"
+def fetch_weather(
+    start: str, end: str, session: requests.Session | None = None, sleep: Callable[[float], None] = time.sleep,
+    out_dir: Path = WEATHER_DIR, quarantine_dir: Path = QUARANTINE_DIR,
+) -> Path | None:
+    """Save the raw Open-Meteo archive response (with ingestion metadata).
+
+    Retries x3 with exponential backoff on timeout/connection error/429/5xx. If it still fails the
+    error type and status go to ``quarantine_dir`` and None is returned (weather is optional:
+    downstream rows get weather_available=0). Only the error type is kept, never the exception text.
+    """
+    path = out_dir / f"open_meteo_la_{start.replace('-', '')}_{end.replace('-', '')}.json"
     if path.exists():
         log.info("weather already present, skipping")
-        return
+        return path
     params = {
         "latitude": LA_LAT, "longitude": LA_LON, "start_date": start, "end_date": end,
         "hourly": WEATHER_VARS, "timezone": TIMEZONE,
     }
-    resp = requests.get(WEATHER_URL, params=params, timeout=60)
-    resp.raise_for_status()
-    record = {
-        "source": "open_meteo_archive", "schema_version": 1, "status": "ok",
-        "ingested_at": _now_iso(), "request_params": params, "http_status": resp.status_code,
-        "response": resp.json(),
-    }
-    WEATHER_DIR.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(record), encoding="utf-8")
-    log.info("saved weather: %s", path.name)
+    session = session or requests.Session()
+    error_type, status = "unknown", None
+    for attempt in range(MAX_RETRIES + 1):
+        status = None
+        try:
+            resp = session.get(WEATHER_URL, params=params, timeout=60)
+            status = resp.status_code
+            if status == 200:
+                record = {
+                    "source": "open_meteo_archive", "schema_version": 1, "status": "ok", "ingested_at": _now_iso(),
+                    "request_params": params, "http_status": status, "response": resp.json(),
+                }
+                out_dir.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(record), encoding="utf-8")
+                log.info("saved weather: %s", path.name)
+                return path
+            error_type, retryable = f"HTTP_{status}", status == 429 or status >= 500
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            error_type, retryable = type(exc).__name__, True
+        except (requests.RequestException, ValueError) as exc:
+            error_type, retryable = type(exc).__name__, False
+        if not retryable or attempt == MAX_RETRIES:
+            break
+        sleep(BACKOFF_BASE_S * 2**attempt)
+
+    quarantine_dir.mkdir(parents=True, exist_ok=True)
+    qpath = quarantine_dir / f"weather_{start.replace('-', '')}_{end.replace('-', '')}_{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.json"
+    qpath.write_text(json.dumps({
+        "source": "open_meteo_archive", "schema_version": 1, "status": "quarantined", "ingested_at": _now_iso(),
+        "request_params": params, "error_type": error_type, "http_status": status, "attempts": attempt + 1,
+    }), encoding="utf-8")
+    log.error("weather fetch failed (%s) after %d attempt(s); quarantined", error_type, attempt + 1)
+    return None
 
 
 def save_holidays(year: int = 2012) -> None:

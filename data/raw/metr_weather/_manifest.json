@@ -1,0 +1,34 @@
+{
+  "source": "metr_weather",
+  "format": "JSON (column-oriented hourly arrays)",
+  "ingestion_method": "REST API (Open-Meteo archive), retry x3 + quarantine",
+  "url": "https://archive-api.open-meteo.com/v1/archive",
+  "request_params": {
+    "latitude": 34.05,
+    "longitude": -118.25,
+    "start_date": "2012-03-01",
+    "end_date": "2012-06-27",
+    "hourly": "temperature_2m,precipitation,relative_humidity_2m",
+    "timezone": "America/Los_Angeles"
+  },
+  "ingested_at": "2026-10-08T01:35:37Z",
+  "files": [
+    {
+      "name": "open_meteo_la_20120301_20120627.json",
+      "bytes": 100341
+    }
+  ],
+  "record_counts": {
+    "open_meteo_la_20120301_20120627.json": {
+      "hourly_rows": 2856
+    }
+  },
+  "schema": {
+    "open_meteo_la_20120301_20120627.json": {
+      "time": "string (ISO local time)",
+      "temperature_2m": "float (\u00b0C)",
+      "precipitation": "float (mm)",
+      "relative_humidity_2m": "float (%)"
+    }
+  }
+}
