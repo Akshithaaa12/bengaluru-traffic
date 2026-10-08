@@ -4,6 +4,7 @@ Run: streamlit run app/streamlit_app.py
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -41,9 +42,15 @@ def load_predictions() -> pd.DataFrame:
 
 
 @st.cache_data
-def load_importance() -> pd.DataFrame | None:
-    path = BENCH / "feature_importance.csv"
+def load_shap() -> pd.DataFrame | None:
+    path = BENCH / "shap_top_features.csv"
     return pd.read_csv(path) if path.exists() else None
+
+
+@st.cache_data
+def load_routing_meta() -> dict:
+    path = BENCH / "routing_meta.json"
+    return json.loads(path.read_text()) if path.exists() else {}
 
 
 @st.cache_data
@@ -79,10 +86,10 @@ def parse_dq_rows(md: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def best_model_name(metrics: pd.DataFrame) -> str:
-    """Same rule as the training run: best learned model by validation macro-F1."""
-    val = metrics[(metrics["split"] == "val") & (metrics["model"] != "persistence")]
-    return str(val.loc[val["macro_f1"].idxmax(), "model"])
+def final_model_name() -> str:
+    """Final model recorded by the training run (falls back to XGBoost)."""
+    path = BENCH / "final_model.json"
+    return json.loads(path.read_text())["model"] if path.exists() else "xgboost"
 
 
 def missing_notice(path: Path, hint: str) -> None:
@@ -179,61 +186,72 @@ def tab_model() -> None:
     num_cols = ["accuracy", "macro_f1", "recall_low", "recall_moderate", "recall_severe"]
     st.dataframe(table.style.apply(highlight, axis=1).format({c: "{:.3f}" for c in num_cols}),
                  hide_index=True, width="stretch")
-    st.caption("XGBoost (class-weighted) is highlighted. Severe recall matters most.")
+    st.caption("XGBoost (class-weighted) is the final model: highest Severe recall. Random forest is kept for comparison.")
 
-    best = best_model_name(metrics)
+    final = final_model_name()
     c1, c2 = st.columns(2)
     cm = BENCH / "confusion_matrix.png"
     if cm.exists():
-        c1.image(str(cm), caption=f"Confusion matrix - {best}, test set")
+        c1.image(str(cm), caption=f"Confusion matrix - {final}, test set")
     else:
         c1.info("confusion_matrix.png not found.")
-    imp = load_importance()
-    if imp is not None:
-        top = imp.head(8).iloc[::-1]
-        fig = px.bar(top, x="importance", y="feature", orientation="h", height=380,
-                     title=f"Feature importance ({best}, impurity-based)")
-        c2.plotly_chart(fig, width="stretch")
+    shap_df = load_shap()
+    if shap_df is not None:
+        top = shap_df.head(10).iloc[::-1]
+        c2.plotly_chart(px.bar(top, x="mean_abs_shap_severe", y="feature", orientation="h", height=420,
+                               title=f"Top features - mean |SHAP|, Severe class ({final})"),
+                        width="stretch")
 
-    st.subheader("SHAP")
+    st.subheader("SHAP (2,000 test rows, Severe class)")
     s1, s2 = st.columns(2)
-    for col, name in ((s1, "shap_bar.png"), (s2, "shap_summary.png")):
+    for col, name in ((s1, "shap_summary.png"), (s2, "shap_bar.png")):
         if (BENCH / name).exists():
             col.image(str(BENCH / name), caption=name)
         else:
-            col.info(f"`reports/benchmark/{name}` not generated yet (SHAP step not run).")
+            col.info(f"`reports/benchmark/{name}` not generated yet. Run `python -m src.benchmark.explain`.")
 
-    if imp is not None:
-        names = imp["feature"].tolist()
-        ratio_share = imp.loc[imp["feature"].str.startswith("ratio_"), "importance"].sum()
+    if shap_df is not None:
+        names = shap_df["feature"].tolist()
+        share = shap_df["share_severe"]
+        ratio_share = share[shap_df["feature"].str.startswith("ratio_")].sum()
+        time_share = share[shap_df["feature"].isin(["hour_sin", "hour_cos", "wd_sin", "wd_cos", "is_peak", "is_holiday"])].sum()
         st.markdown(
-            f"- Top features by importance ({best}): **{names[0]}**, **{names[1]}**, **{names[2]}** "
-            f"({imp['importance'].iloc[:3].sum():.0%} combined).\n"
-            f"- Speed-ratio features (current, lags, 1 h stats) carry {ratio_share:.0%} of importance; "
-            f"time, weather, holiday and sensor features share the remaining {1 - ratio_share:.0%}."
+            f"- Top SHAP features for Severe: **{names[0]}**, **{names[1]}**, **{names[2]}** ({share.iloc[:3].sum():.0%} of total mean |SHAP|).\n"
+            f"- Recent speed (ratio) features carry {ratio_share:.0%} and time-of-day/week features {time_share:.0%}; "
+            "`free_flow_mph` mostly acts as a sensor identifier."
         )
 
 
 def tab_routing() -> None:
-    st.header("Route optimization")
+    st.header("Route optimization (METR-LA sensor graph)")
     results = BENCH / "routing_results.csv"
     example = BENCH / "routing_example.png"
     if not results.exists():
-        missing_notice(results, "The routing step (`src/routing`) has not been run yet.")
-    else:
-        df = pd.read_csv(results)
-        saving_cols = [c for c in df.columns if "saving" in c.lower()]
-        if saving_cols:
-            c1, c2 = st.columns(2)
-            c1.metric(f"Mean {saving_cols[0]}", f"{df[saving_cols[0]].mean():.2f}")
-            c2.metric(f"Median {saving_cols[0]}", f"{df[saving_cols[0]].median():.2f}")
-        st.dataframe(df, hide_index=True, width="stretch")
-        pair = st.selectbox("O-D pair", df.index, format_func=lambda i: " -> ".join(str(v) for v in df.iloc[i, :2]))
-        st.write(df.iloc[pair].to_frame("value"))
+        missing_notice(results, "Run `python -m src.routing.benchmark_router`.")
+        return
+    df = pd.read_csv(results, dtype={"origin": str, "destination": str})
+    meta = load_routing_meta()
+    if meta:
+        st.caption(
+            f"Forecast origin {meta['forecast_origin']} (weekday 08:00, test set); routes chosen with predicted speeds, "
+            f"timed with actual speeds at {meta['evaluated_at']}. Graph: {meta['nodes']} sensors, {meta['edges']} edges."
+        )
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Mean saving", f"{df['saving_pct'].mean():.2f}%")
+    c2.metric("Median saving", f"{df['saving_pct'].median():.2f}%")
+    c3.metric("Pairs improved", int((df["saving_pct"] > 0).sum()))
+    c4.metric("Pairs worse", int((df["saving_pct"] < 0).sum()))
     if example.exists():
-        st.image(str(example), caption="Example: shortest-distance vs congestion-aware route")
-    else:
-        missing_notice(example, "")
+        st.image(str(example), caption="Shortest-distance vs congestion-aware route (best of the 50 pairs)")
+
+    st.subheader("O-D pairs")
+    pair = st.selectbox("O-D pair", df.index, format_func=lambda i: f"{df.at[i, 'origin']} -> {df.at[i, 'destination']}")
+    row = df.loc[pair]
+    a, b, c = st.columns(3)
+    a.metric("Distance route", f"{row['dist_route_min']:.2f} min")
+    b.metric("Congestion-aware route", f"{row['aware_route_min']:.2f} min")
+    c.metric("Saving", f"{row['saving_pct']:.2f}%")
+    st.dataframe(df, hide_index=True, width="stretch")
 
 
 def tab_dq() -> None:

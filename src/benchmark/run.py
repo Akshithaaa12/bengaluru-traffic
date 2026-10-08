@@ -4,6 +4,7 @@ Run: ``python -m src.benchmark.run``
 """
 from __future__ import annotations
 
+import json
 import sys
 import time
 
@@ -29,6 +30,8 @@ from src.utils.log import get_logger
 log = get_logger(__name__)
 OUT = project_path("reports/benchmark")
 LABELS = [0, 1, 2]
+# Final model is fixed to XGBoost: Severe-class recall matters most, and it is the best on it.
+FINAL_MODEL = "xgboost"
 
 
 def score(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
@@ -146,13 +149,17 @@ def main() -> int:
     metrics.to_csv(OUT / "metrics.csv", index=False)
 
     val = metrics[(metrics.split == "val") & metrics.model.isin(models)]
-    best = val.loc[val.macro_f1.idxmax(), "model"]       # chosen on validation, not test
-    model = models[best][0]
-    save_confusion(model, best, splits["test"])
+    best_f1 = val.loc[val.macro_f1.idxmax(), "model"]    # for reference only (validation, not test)
+    model = models[FINAL_MODEL][0]
+    save_confusion(model, FINAL_MODEL, splits["test"])
     joblib.dump({"model": model, "features": FEATURES, "classes": ["Low", "Moderate", "Severe"]},
                 OUT / "models" / "best_model.pkl", compress=3)
+    (OUT / "final_model.json").write_text(
+        json.dumps({"model": FINAL_MODEL, "reason": "highest Severe-class recall", "best_val_macro_f1": best_f1}),
+        encoding="utf-8",
+    )
 
-    print(f"\nBest model (by validation macro-F1): {best}\n")
+    print(f"\nFinal model: {FINAL_MODEL} (best validation macro-F1: {best_f1})\n")
     for split in ("test", "val"):
         print(f"== {split} ==")
         print(metrics[metrics.split == split].drop(columns="split").to_string(index=False, float_format="%.3f"))

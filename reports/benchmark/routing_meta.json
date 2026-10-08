@@ -1,0 +1,13 @@
+{
+  "forecast_origin": "2012-06-11 08:00:00",
+  "evaluated_at": "2012-06-11 08:30:00",
+  "nodes": 19,
+  "edges": 68,
+  "pairs": 50,
+  "pairs_with_different_routes": 27,
+  "mean_saving_pct": 2.79,
+  "median_saving_pct": 0.25,
+  "mean_saving_pct_differing_pairs": 5.17,
+  "pairs_improved": 26,
+  "pairs_worse": 1
+}
