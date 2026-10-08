@@ -7,6 +7,27 @@ and recommends congestion-aware routes versus plain shortest-path routes, with S
 See `CLAUDE.md` for the full design: data sources, integration keys, missing-data rules,
 modelling and routing.
 
+## Why METR-LA?
+
+The Bengaluru TomTom collector is live (a GitHub Actions workflow polls 13 South-East Bengaluru segments) but has only just started
+collecting, so there is not yet enough history to train a model on it. To validate the whole pipeline end to end - multi-source
+ingestion, raw zones, data-quality rules, integration, curated dataset, models, SHAP, routing and the dashboard - it is first run on
+**METR-LA** (Los Angeles loop-detector speeds, 4 months) plus Open-Meteo weather and US holidays. The same pipeline will be retrained
+on the Bengaluru data as it accumulates. Results and limitations: `reports/benchmark/RESULTS.md`.
+
+Benchmark commands (all run from the project root):
+
+```bash
+python -m src.benchmark.download     # raw sources + manifests inputs
+python -m src.benchmark.curate       # curated parquet + DQ outputs
+python -m src.benchmark.run          # models + metrics (logged to MLflow)
+python -m src.benchmark.explain      # SHAP
+python -m src.benchmark.ablation     # source/feature ablation
+python -m src.routing.benchmark_router
+python -m src.benchmark.fault_demo   # fault-injection demo
+streamlit run app/streamlit_app.py   # dashboard; `mlflow ui` for experiments
+```
+
 ## Setup
 
 ```bash

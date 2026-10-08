@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import time
+from pathlib import Path
 
 import joblib
 import matplotlib
@@ -23,7 +25,9 @@ from sklearn.preprocessing import StandardScaler  # noqa: E402
 from sklearn.utils.class_weight import compute_sample_weight  # noqa: E402
 from xgboost import XGBClassifier  # noqa: E402
 
+from src.benchmark.explain import make_shap_plots
 from src.benchmark.prepare import CLASSES, FEATURES, SEED, build_dataset, chronological_split
+from src.benchmark.tracking import log_run
 from src.utils.config import project_path
 from src.utils.log import get_logger
 
@@ -41,6 +45,21 @@ def score(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
         "macro_f1": f1_score(y_true, y_pred, labels=LABELS, average="macro", zero_division=0),
         **{f"recall_{c.lower()}": r for c, r in zip(CLASSES, rec)},
     }
+
+
+XGB_PARAMS = {
+    "n_estimators": 300, "learning_rate": 0.1, "max_depth": 6, "subsample": 0.8, "colsample_bytree": 0.8,
+    "tree_method": "hist", "eval_metric": "mlogloss", "early_stopping_rounds": 20, "random_state": SEED,
+}
+
+
+def fit_xgb(tr: pd.DataFrame, va: pd.DataFrame, features: list[str]) -> XGBClassifier:
+    """Class-weighted XGBoost with early stopping on the validation set (shared by the final model and ablations)."""
+    y_tr = tr["y"].astype(int)
+    xgb = XGBClassifier(n_jobs=-1, **XGB_PARAMS)
+    xgb.fit(tr[features], y_tr, sample_weight=compute_sample_weight("balanced", y_tr),
+            eval_set=[(va[features], va["y"].astype(int))], verbose=False)
+    return xgb
 
 
 def train_models(tr: pd.DataFrame, va: pd.DataFrame) -> dict[str, tuple[object, float]]:
@@ -63,14 +82,7 @@ def train_models(tr: pd.DataFrame, va: pd.DataFrame) -> dict[str, tuple[object, 
     log.info("random_forest fit in %.0fs", time.time() - t0)
 
     t0 = time.time()
-    xgb = XGBClassifier(
-        n_estimators=300, learning_rate=0.1, max_depth=6, subsample=0.8, colsample_bytree=0.8,
-        tree_method="hist", n_jobs=-1, eval_metric="mlogloss", early_stopping_rounds=20, random_state=SEED,
-    )
-    xgb.fit(
-        x_tr, y_tr, sample_weight=compute_sample_weight("balanced", y_tr),
-        eval_set=[(va[FEATURES], va["y"].astype(int))], verbose=False,
-    )
+    xgb = fit_xgb(tr, va, FEATURES)
     models["xgboost"] = (xgb, time.time() - t0)
     log.info("xgboost fit in %.0fs (best_iteration=%s)", time.time() - t0, xgb.best_iteration)
     return models
@@ -89,20 +101,54 @@ def evaluate(models: dict[str, tuple[object, float]], splits: dict[str, pd.DataF
     return pd.DataFrame(rows)
 
 
-def save_confusion(model: object, name: str, test: pd.DataFrame) -> None:
-    y, pred = test["y"].astype(int), model.predict(test[FEATURES])
-    pd.DataFrame(confusion_matrix(y, pred, labels=LABELS), index=CLASSES, columns=CLASSES).to_csv(
-        OUT / "confusion_matrix.csv"
-    )
+def confusion_png(y: np.ndarray, pred: np.ndarray, name: str, path) -> None:
+    """Row-normalised confusion matrix image."""
     fig, ax = plt.subplots(figsize=(5.5, 4.5))
     ConfusionMatrixDisplay.from_predictions(
         y, pred, labels=LABELS, display_labels=CLASSES, normalize="true", values_format=".2f",
         cmap="Blues", ax=ax, colorbar=False,
     )
-    ax.set_title(f"{name} - test set (row-normalised)\nn={len(test):,}, 30-min-ahead congestion")
+    ax.set_title(f"{name} - test set (row-normalised)\nn={len(y):,}, 30-min-ahead congestion")
     fig.tight_layout()
-    fig.savefig(OUT / "confusion_matrix.png", dpi=150)
+    fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def save_confusion(model: object, name: str, test: pd.DataFrame) -> None:
+    y, pred = test["y"].astype(int), model.predict(test[FEATURES])
+    pd.DataFrame(confusion_matrix(y, pred, labels=LABELS), index=CLASSES, columns=CLASSES).to_csv(
+        OUT / "confusion_matrix.csv"
+    )
+    confusion_png(y, pred, name, OUT / "confusion_matrix.png")
+
+
+def log_models_to_mlflow(models: dict, metrics: pd.DataFrame, splits: dict[str, pd.DataFrame], extra_params: dict) -> None:
+    """One MLflow run per model (incl. persistence): params, val/test metrics, confusion matrix; SHAP for XGBoost."""
+    test = splits["test"]
+    y = test["y"].astype(int).to_numpy()
+    descriptions = {
+        "persistence": {"rule": "predict the current congestion class"},
+        "logistic_regression": {"max_iter": 300, "scaler": "StandardScaler"},
+        "random_forest": {"n_estimators": 100, "min_samples_leaf": 50, "max_samples": 0.3},
+        "xgboost": {**XGB_PARAMS, "class_weight": "balanced"},
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, params in descriptions.items():
+            tmp_dir = Path(tmp) / name
+            tmp_dir.mkdir()
+            pred = test["y_now"].astype(int).to_numpy() if name == "persistence" else models[name][0].predict(test[FEATURES])
+            confusion_png(y, pred, name, tmp_dir / "confusion_matrix.png")
+            artifacts = [tmp_dir / "confusion_matrix.png"]
+            if name == "xgboost":
+                sample = test[FEATURES].sample(n=2000, random_state=SEED)
+                make_shap_plots(models[name][0], sample, tmp_dir, "XGBoost")
+                artifacts += [tmp_dir / "shap_summary.png", tmp_dir / "shap_bar.png", OUT / "models" / "best_model.pkl"]
+            rows = metrics[metrics["model"] == name].set_index("split")
+            vals = {f"{sp}_{m}": rows.loc[sp, m] for sp in ("val", "test")
+                    for m in ("accuracy", "macro_f1", "recall_low", "recall_moderate", "recall_severe")}
+            vals["fit_seconds"] = rows.loc["test", "fit_s"]
+            log_run(name, {"model": name, "n_features": len(FEATURES), "features": ",".join(FEATURES), **params, **extra_params},
+                    vals, artifacts, {"kind": "model", "final": str(name == FINAL_MODEL)})
 
 
 def write_dq(stats: dict, splits: dict[str, pd.DataFrame]) -> None:
@@ -158,6 +204,9 @@ def main() -> int:
         json.dumps({"model": FINAL_MODEL, "reason": "highest Severe-class recall", "best_val_macro_f1": best_f1}),
         encoding="utf-8",
     )
+
+    log_models_to_mlflow(models, metrics, splits, {"n_train": len(splits["train"]), "n_val": len(splits["val"]),
+                                                    "n_test": len(splits["test"]), "horizon_min": 30, "sensors": 40})
 
     print(f"\nFinal model: {FINAL_MODEL} (best validation macro-F1: {best_f1})\n")
     for split in ("test", "val"):

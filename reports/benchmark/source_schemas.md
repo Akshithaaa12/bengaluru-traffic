@@ -85,6 +85,7 @@ Format: CSV. Ingestion: python library `holidays` 0.106 (US, 2012).
 | `speed_filled_mph` | metr_la | speed | Speed after interpolating gaps <= 30 min; NaN for longer gaps |
 | `sensor_missing` | metr_la | dq_flag | 1 if the raw speed was 0/NaN (sensor failure) |
 | `interpolated` | metr_la | dq_flag | 1 if the value was filled by interpolation (gap <= 30 min) |
+| `speed_out_of_range` | metr_la | dq_flag | 1 if the raw speed was outside 0-100 mph (set NaN before cleaning) |
 | `free_flow_mph` | metr_la | speed | Sensor's 95th-percentile valid speed |
 | `ratio_t` | metr_la | speed_lags | speed / free_flow now |
 | `ratio_lag5` | metr_la | speed_lags | ratio 5 min ago |
@@ -101,7 +102,9 @@ Format: CSV. Ingestion: python library `holidays` 0.106 (US, 2012).
 | `temp_c` | metr_weather | weather | Temperature 2 m (C), joined on the hour |
 | `precip_mm` | metr_weather | weather | Precipitation (mm), joined on the hour |
 | `humidity` | metr_weather | weather | Relative humidity 2 m (%), joined on the hour |
-| `weather_available` | metr_weather | dq_flag | 1 if an hourly weather row existed for this timestamp |
+| `weather_available` | metr_weather | dq_flag | 1 if a valid hourly weather row existed for this timestamp |
+| `weather_out_of_range` | metr_weather | dq_flag | 1 if a weather value was out of range (set NaN) |
+| `holiday_available` | metr_calendar | dq_flag | 1 if the calendar file was available (0 -> is_holiday defaulted to 0) |
 | `is_holiday` | metr_calendar | holiday | 1 if the date is a US holiday (joined on date); no match = valid 0 |
 | `y_now` | metr_la | target | Congestion class now (0 Low, 1 Moderate, 2 Severe) |
 | `y` | metr_la | target | Congestion class 30 min ahead (target) |

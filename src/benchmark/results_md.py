@@ -46,6 +46,17 @@ def main() -> int:
     rules = pd.read_csv(BENCH / "dq_rules.csv")[["rule_id", "source", "field", "requirement", "detection", "handling"]]
     missing = pd.read_csv(BENCH / "missing_by_source.csv")
 
+    abl = pd.read_csv(BENCH / "ablation.csv").set_index("variant")
+
+    def abl_line(v: str) -> str:
+        r = abl.loc[v]
+        return f"macro-F1 {r.test_macro_f1:.3f} ({r.delta_macro_f1:+.3f}), Severe recall {r.test_recall_severe:.3f} ({r.delta_recall_severe:+.3f})"
+
+    def verdict(v: str) -> str:
+        return "no measurable contribution" if abl.loc[v, "delta_macro_f1"] > -0.005 else "a real contribution"
+
+    abl_table = abl.reset_index()[["variant", "n_features", "test_accuracy", "test_macro_f1", "test_recall_severe",
+                                   "delta_macro_f1", "delta_recall_severe"]]
     xgb = test[test["model"] == "xgboost"].iloc[0]
     pers = test[test["model"] == "persistence"].iloc[0]
     text = f"""# METR-LA benchmark - results
@@ -93,6 +104,27 @@ sources (weather, holiday) only enrich a row and are flagged when missing (`weat
 
 Full detail: [`dq_summary.md`](dq_summary.md), [`missing_by_source.csv`](missing_by_source.csv).
 
+### Validation before integration (R9)
+
+Each source is validated on its own before any join: speed must be within 0-100 mph, temperature -20..55 C, humidity 0-100 %,
+precipitation >= 0; timestamps must be strictly increasing with no duplicate `(sensor_id, timestamp)`. Out-of-range values become
+NaN and are flagged (`speed_out_of_range`, `weather_out_of_range`); unsorted/duplicated keys are sorted and de-duplicated (first
+kept). On this data every check found 0 violations (see the table above).
+
+### Failure handling demonstrated
+
+[`fault_injection_demo.md`](fault_injection_demo.md) breaks two optional sources on purpose (a 3-day weather API outage and a missing
+calendar file) and shows which source failed, how it was detected (quarantine record, null counts, `weather_available=0`,
+`holiday_available=0`), the flags set, and that the run still completes. Every curated file also stores the manifest path and
+`ingested_at` of each raw source in its metadata, so a flagged row can be traced back to its source.
+
+### Timezone assumption
+
+METR-LA timestamps carry no timezone. They are **treated as America/Los_Angeles local time**, and the Open-Meteo request uses
+`timezone=America/Los_Angeles`, so the hourly weather join, hour-of-day, weekday and peak features are all in local time. Timestamps
+are stored naive (not UTC, unlike the Bengaluru TomTom pipeline). Daylight-saving transitions (2012-03-11) were not verified against
+the sensor data.
+
 ## Models and metrics (test set, chronological 70/15/15 split)
 
 Features: speed-ratio lags (5/15/30/60 min), 1 h rolling mean/std, sin/cos hour and weekday, peak flag, holiday flag,
@@ -110,6 +142,31 @@ recall. Confusion matrix: `confusion_matrix.png`. Validation metrics are in `met
 TreeExplainer on XGBoost, 2,000 random test rows (`shap_summary.png`, `shap_bar.png`, `shap_top_features.csv`).
 
 {md_table(top10, "{:.3f}")}
+
+## What each source contributes (ablation)
+
+XGBoost retrained with feature groups removed (same splits and hyperparameters; the final model is unchanged). Test set:
+
+{md_table(abl_table, "{:.4f}")}
+
+- **Weather** (temperature, precipitation, humidity): without it {abl_line("no_weather")} - {verdict("no_weather")}. It is a single
+  Los Angeles point shared by all 40 sensors, and rain is rare in this period.
+- **Holidays**: without them {abl_line("no_holiday")} - {verdict("no_holiday")}. The 119-day range contains one holiday (Memorial Day).
+- **Both optional sources removed**: {abl_line("no_weather_no_holiday")}.
+- **`free_flow_mph`**: without it {abl_line("no_free_flow_mph")} - {verdict("no_free_flow_mph")}; it carries per-sensor information (it acts
+  as a sensor identifier).
+
+Honest reading: on METR-LA the predictive signal comes from the speed history of the sensors. Weather and holidays are integrated
+as genuinely separate sources to demonstrate the multi-source pipeline, but they do **not** improve these metrics here; whether they matter
+more in Bengaluru (for example monsoon rain) is untested. Differences of a few thousandths come from a single run without confidence
+intervals and should not be over-interpreted.
+
+## Experiment tracking (MLflow)
+
+Every model (persistence, logistic regression, random forest, XGBoost) and every ablation variant is logged to a local MLflow store
+(`./mlruns`, experiment `metr_la_benchmark`): parameters, validation/test metrics and artifacts (confusion matrix; SHAP summary and bar
+plots for the XGBoost runs). Run `mlflow ui` to browse them. MLflow 3 marks the file store as maintenance mode, so it is enabled with
+`MLFLOW_ALLOW_FILE_STORE=true` (set in `src/benchmark/tracking.py`).
 
 ## Routing
 
@@ -137,8 +194,11 @@ Output: `routing_results.csv`, `routing_example.png` (the example shown is the b
 - **Routing is a simplification.** One timestamp, one 19-sensor component, a sensor graph rather than a road network, edge time from the
   destination sensor only, and predicted speeds derived from class probabilities x class-mean ratios (the model predicts classes, not speeds).
   The mean saving is small and the median is close to zero; large savings occur only on a few pairs.
-- **Time zone.** Naive METR-LA timestamps are treated as America/Los_Angeles local time; daylight-saving handling is unverified.
-- **No unit tests yet** for the benchmark modules.
+- **Time zone.** Naive METR-LA timestamps are treated as America/Los_Angeles local time and stored without UTC conversion;
+  daylight-saving handling is unverified.
+- **Optional sources add little here.** The ablation shows weather and holidays do not improve the metrics on this benchmark.
+- **Test coverage.** Unit tests cover the DQ rules, validation, weather retry/quarantine, the TomTom collector and the fault demo;
+  the training, SHAP and routing code have no unit tests.
 """
     (BENCH / "RESULTS.md").write_text(text, encoding="utf-8")
     return 0

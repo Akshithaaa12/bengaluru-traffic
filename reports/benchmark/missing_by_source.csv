@@ -1,12 +1,18 @@
 source,check,requirement,total_records,missing_or_failed,pct,detected_by,handling,filled,excluded
 metr_la,"speed == 0, all 207 sensors",mandatory,7094304,575302,8.11,R1: speed == 0,flag + set NaN,-,-
 metr_la,"speed == 0 / NaN, 40 selected sensors",mandatory,1370880,107173,7.82,R1: speed == 0 or NaN,flag sensor_missing=1; interpolate gaps <= 30 min; exclude longer,"6,470 interpolated","100,703 excluded"
+metr_la,speed outside 0-100 mph,mandatory,7094304,0,0.0,R9: range check before integration,set NaN + speed_out_of_range=1 (then handled as R1),-,-
+metr_la,"non-monotonic / duplicate (sensor_id, timestamp)",mandatory,34272,0,0.0,"R9: strictly increasing index, duplicated keys","sort, keep first duplicate",-,-
 metr_la,timestamp null / duplicated / irregular,mandatory,34272,0,0.0,"R2: isnull, duplicated, step != 5 min",reject record,-,0 rejected
 metr_la,sensor without coordinates,mandatory,207,0,0.0,R3: no row in sensor_locations,exclude sensor,-,0 excluded
 metr_weather,API request failed,optional,1,0,0.0,R4: timeout / 429 / 5xx,retry x3 then quarantine; weather_available=0,-,-
 metr_weather,temperature_2m null hours,optional,2856,0,0.0,R5: null hourly value,weather_available=0; ffill <= 1 h; else exclude,-,-
 metr_weather,precipitation null hours,optional,2856,0,0.0,R5: null hourly value,weather_available=0; ffill <= 1 h; else exclude,-,-
 metr_weather,relative_humidity_2m null hours,optional,2856,0,0.0,R5: null hourly value,weather_available=0; ffill <= 1 h; else exclude,-,-
+metr_weather,temperature_2m out of range,optional,2856,0,0.0,R9: range check before integration,set NaN + weather_out_of_range=1; weather_available=0,-,-
+metr_weather,precipitation out of range,optional,2856,0,0.0,R9: range check before integration,set NaN + weather_out_of_range=1; weather_available=0,-,-
+metr_weather,relative_humidity_2m out of range,optional,2856,0,0.0,R9: range check before integration,set NaN + weather_out_of_range=1; weather_available=0,-,-
 metr_weather,timestamps with no weather after the hour join,optional,34272,0,0.0,"R6: no row for floor(timestamp, 1 h)",weather_available=0; ffill <= 1 h; else exclude,-,-
 metr_calendar,date not a holiday,optional,34272,0,0.0,R7: absent date,valid is_holiday=0 (not missing),-,-
+metr_calendar,calendar file unavailable (rows with holiday_available=0),optional,34272,0,0.0,R10: file missing,"holiday_available=0, is_holiday=0 (flagged default)",-,-
 integration,rows with a NaN required feature or target,derived,1370880,132902,9.69,R8: NaN in features/target,exclude from modelling; keep in curated with usable=0,-,"132,902 excluded"

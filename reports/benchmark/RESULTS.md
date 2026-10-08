@@ -45,10 +45,12 @@ sources (weather, holiday) only enrich a row and are flagged when missing (`weat
 | R1 | metr_la | speed | mandatory | speed == 0 (or NaN): a loop detector reporting 0 mph is a sensor failure, never a real zero | flag sensor_missing=1 and set NaN; interpolate gaps <= 30 min (interpolated=1); exclude longer gaps |
 | R2 | metr_la | timestamp | mandatory | null, duplicated or not on the regular 5-min grid | reject the record (cannot be placed in time) |
 | R3 | metr_la | sensor_id | mandatory | missing, or no entry in sensor_locations | exclude the sensor |
-| R4 | metr_weather | api_request | optional | timeout, connection error, HTTP 429 or 5xx | retry x3 with exponential backoff, then quarantine; weather_available=0 for all rows |
+| R4 | metr_weather | api_request | optional | timeout, connection error, HTTP 429 or 5xx | retry x3 with exponential backoff, then quarantine; no weather file -> NaN weather, weather_available=0 |
 | R5 | metr_weather | temperature_2m, precipitation, relative_humidity_2m | optional | null hourly value | weather_available=0; forward-fill <= 1 h only; rows still missing are excluded from modelling |
 | R6 | metr_weather | join_on_hour | optional | no weather row for floor(timestamp, 1 h) | same as R5 |
 | R7 | metr_calendar | holiday | optional | date absent from the holiday list | valid is_holiday=0 (not missing) |
+| R9 | metr_la, metr_weather | speed, temperature_2m, relative_humidity_2m, precipitation | mandatory (speed) / optional (weather) | range check before integration: speed 0-100 mph, temperature -20..55 C, humidity 0-100 %, precipitation >= 0; timestamps strictly increasing; no duplicate (sensor_id, timestamp) | out-of-range value -> NaN + speed_out_of_range / weather_out_of_range flag; duplicate/unsorted timestamps -> sorted, first duplicate kept |
+| R10 | metr_calendar | calendar_file | optional | holiday file missing | holiday_available=0 and is_holiday=0 (justified default: rare event, flagged) |
 | R8 | integration | features + target | derived | NaN in any required feature or the 30-min-ahead target (lags/rolling/target touch a long gap) | exclude the row from train/val/test (kept in the curated table with usable=0) |
 
 ## Missing data by source
@@ -57,17 +59,44 @@ sources (weather, holiday) only enrich a row and are flagged when missing (`weat
 |---|---|---|---|---|---|---|---|---|---|
 | metr_la | speed == 0, all 207 sensors | mandatory | 7,094,304 | 575,302 | 8.110 | R1: speed == 0 | flag + set NaN | - | - |
 | metr_la | speed == 0 / NaN, 40 selected sensors | mandatory | 1,370,880 | 107,173 | 7.820 | R1: speed == 0 or NaN | flag sensor_missing=1; interpolate gaps <= 30 min; exclude longer | 6,470 interpolated | 100,703 excluded |
+| metr_la | speed outside 0-100 mph | mandatory | 7,094,304 | 0 | 0.000 | R9: range check before integration | set NaN + speed_out_of_range=1 (then handled as R1) | - | - |
+| metr_la | non-monotonic / duplicate (sensor_id, timestamp) | mandatory | 34,272 | 0 | 0.000 | R9: strictly increasing index, duplicated keys | sort, keep first duplicate | - | - |
 | metr_la | timestamp null / duplicated / irregular | mandatory | 34,272 | 0 | 0.000 | R2: isnull, duplicated, step != 5 min | reject record | - | 0 rejected |
 | metr_la | sensor without coordinates | mandatory | 207 | 0 | 0.000 | R3: no row in sensor_locations | exclude sensor | - | 0 excluded |
 | metr_weather | API request failed | optional | 1 | 0 | 0.000 | R4: timeout / 429 / 5xx | retry x3 then quarantine; weather_available=0 | - | - |
 | metr_weather | temperature_2m null hours | optional | 2,856 | 0 | 0.000 | R5: null hourly value | weather_available=0; ffill <= 1 h; else exclude | - | - |
 | metr_weather | precipitation null hours | optional | 2,856 | 0 | 0.000 | R5: null hourly value | weather_available=0; ffill <= 1 h; else exclude | - | - |
 | metr_weather | relative_humidity_2m null hours | optional | 2,856 | 0 | 0.000 | R5: null hourly value | weather_available=0; ffill <= 1 h; else exclude | - | - |
+| metr_weather | temperature_2m out of range | optional | 2,856 | 0 | 0.000 | R9: range check before integration | set NaN + weather_out_of_range=1; weather_available=0 | - | - |
+| metr_weather | precipitation out of range | optional | 2,856 | 0 | 0.000 | R9: range check before integration | set NaN + weather_out_of_range=1; weather_available=0 | - | - |
+| metr_weather | relative_humidity_2m out of range | optional | 2,856 | 0 | 0.000 | R9: range check before integration | set NaN + weather_out_of_range=1; weather_available=0 | - | - |
 | metr_weather | timestamps with no weather after the hour join | optional | 34,272 | 0 | 0.000 | R6: no row for floor(timestamp, 1 h) | weather_available=0; ffill <= 1 h; else exclude | - | - |
 | metr_calendar | date not a holiday | optional | 34,272 | 0 | 0.000 | R7: absent date | valid is_holiday=0 (not missing) | - | - |
+| metr_calendar | calendar file unavailable (rows with holiday_available=0) | optional | 34,272 | 0 | 0.000 | R10: file missing | holiday_available=0, is_holiday=0 (flagged default) | - | - |
 | integration | rows with a NaN required feature or target | derived | 1,370,880 | 132,902 | 9.690 | R8: NaN in features/target | exclude from modelling; keep in curated with usable=0 | - | 132,902 excluded |
 
 Full detail: [`dq_summary.md`](dq_summary.md), [`missing_by_source.csv`](missing_by_source.csv).
+
+### Validation before integration (R9)
+
+Each source is validated on its own before any join: speed must be within 0-100 mph, temperature -20..55 C, humidity 0-100 %,
+precipitation >= 0; timestamps must be strictly increasing with no duplicate `(sensor_id, timestamp)`. Out-of-range values become
+NaN and are flagged (`speed_out_of_range`, `weather_out_of_range`); unsorted/duplicated keys are sorted and de-duplicated (first
+kept). On this data every check found 0 violations (see the table above).
+
+### Failure handling demonstrated
+
+[`fault_injection_demo.md`](fault_injection_demo.md) breaks two optional sources on purpose (a 3-day weather API outage and a missing
+calendar file) and shows which source failed, how it was detected (quarantine record, null counts, `weather_available=0`,
+`holiday_available=0`), the flags set, and that the run still completes. Every curated file also stores the manifest path and
+`ingested_at` of each raw source in its metadata, so a flagged row can be traced back to its source.
+
+### Timezone assumption
+
+METR-LA timestamps carry no timezone. They are **treated as America/Los_Angeles local time**, and the Open-Meteo request uses
+`timezone=America/Los_Angeles`, so the hourly weather join, hour-of-day, weekday and peak features are all in local time. Timestamps
+are stored naive (not UTC, unlike the Bengaluru TomTom pipeline). Daylight-saving transitions (2012-03-11) were not verified against
+the sensor data.
 
 ## Models and metrics (test set, chronological 70/15/15 split)
 
@@ -103,6 +132,37 @@ TreeExplainer on XGBoost, 2,000 random test rows (`shap_summary.png`, `shap_bar.
 | wd_cos | 0.065 | 2.5% |
 | humidity | 0.058 | 2.2% |
 
+## What each source contributes (ablation)
+
+XGBoost retrained with feature groups removed (same splits and hyperparameters; the final model is unchanged). Test set:
+
+| variant | n_features | test_accuracy | test_macro_f1 | test_recall_severe | delta_macro_f1 | delta_recall_severe |
+|---|---|---|---|---|---|---|
+| all_features | 17 | 0.8471 | 0.6827 | 0.7432 | 0.0000 | 0.0000 |
+| no_weather | 14 | 0.8486 | 0.6846 | 0.7479 | 0.0019 | 0.0046 |
+| no_holiday | 16 | 0.8464 | 0.6825 | 0.7480 | -0.0002 | 0.0048 |
+| no_free_flow_mph | 16 | 0.8354 | 0.6629 | 0.7172 | -0.0199 | -0.0260 |
+| no_weather_no_holiday | 13 | 0.8482 | 0.6839 | 0.7488 | 0.0012 | 0.0055 |
+
+- **Weather** (temperature, precipitation, humidity): without it macro-F1 0.685 (+0.002), Severe recall 0.748 (+0.005) - no measurable contribution. It is a single
+  Los Angeles point shared by all 40 sensors, and rain is rare in this period.
+- **Holidays**: without them macro-F1 0.682 (-0.000), Severe recall 0.748 (+0.005) - no measurable contribution. The 119-day range contains one holiday (Memorial Day).
+- **Both optional sources removed**: macro-F1 0.684 (+0.001), Severe recall 0.749 (+0.006).
+- **`free_flow_mph`**: without it macro-F1 0.663 (-0.020), Severe recall 0.717 (-0.026) - a real contribution; it carries per-sensor information (it acts
+  as a sensor identifier).
+
+Honest reading: on METR-LA the predictive signal comes from the speed history of the sensors. Weather and holidays are integrated
+as genuinely separate sources to demonstrate the multi-source pipeline, but they do **not** improve these metrics here; whether they matter
+more in Bengaluru (for example monsoon rain) is untested. Differences of a few thousandths come from a single run without confidence
+intervals and should not be over-interpreted.
+
+## Experiment tracking (MLflow)
+
+Every model (persistence, logistic regression, random forest, XGBoost) and every ablation variant is logged to a local MLflow store
+(`./mlruns`, experiment `metr_la_benchmark`): parameters, validation/test metrics and artifacts (confusion matrix; SHAP summary and bar
+plots for the XGBoost runs). Run `mlflow ui` to browse them. MLflow 3 marks the file store as maintenance mode, so it is enabled with
+`MLFLOW_ALLOW_FILE_STORE=true` (set in `src/benchmark/tracking.py`).
+
 ## Routing
 
 Directed graph of 19 sensors / 68 edges (road distance < 5 km, largest weakly connected component of
@@ -129,5 +189,8 @@ Output: `routing_results.csv`, `routing_example.png` (the example shown is the b
 - **Routing is a simplification.** One timestamp, one 19-sensor component, a sensor graph rather than a road network, edge time from the
   destination sensor only, and predicted speeds derived from class probabilities x class-mean ratios (the model predicts classes, not speeds).
   The mean saving is small and the median is close to zero; large savings occur only on a few pairs.
-- **Time zone.** Naive METR-LA timestamps are treated as America/Los_Angeles local time; daylight-saving handling is unverified.
-- **No unit tests yet** for the benchmark modules.
+- **Time zone.** Naive METR-LA timestamps are treated as America/Los_Angeles local time and stored without UTC conversion;
+  daylight-saving handling is unverified.
+- **Optional sources add little here.** The ablation shows weather and holidays do not improve the metrics on this benchmark.
+- **Test coverage.** Unit tests cover the DQ rules, validation, weather retry/quarantine, the TomTom collector and the fault demo;
+  the training, SHAP and routing code have no unit tests.

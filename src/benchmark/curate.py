@@ -34,6 +34,7 @@ DATA_DICTIONARY: list[tuple[str, str, str, str]] = [
     ("speed_filled_mph", "metr_la", "speed", "Speed after interpolating gaps <= 30 min; NaN for longer gaps"),
     ("sensor_missing", "metr_la", "dq_flag", "1 if the raw speed was 0/NaN (sensor failure)"),
     ("interpolated", "metr_la", "dq_flag", "1 if the value was filled by interpolation (gap <= 30 min)"),
+    ("speed_out_of_range", "metr_la", "dq_flag", "1 if the raw speed was outside 0-100 mph (set NaN before cleaning)"),
     ("free_flow_mph", "metr_la", "speed", "Sensor's 95th-percentile valid speed"),
     ("ratio_t", "metr_la", "speed_lags", "speed / free_flow now"),
     ("ratio_lag5", "metr_la", "speed_lags", "ratio 5 min ago"),
@@ -50,12 +51,26 @@ DATA_DICTIONARY: list[tuple[str, str, str, str]] = [
     ("temp_c", "metr_weather", "weather", "Temperature 2 m (C), joined on the hour"),
     ("precip_mm", "metr_weather", "weather", "Precipitation (mm), joined on the hour"),
     ("humidity", "metr_weather", "weather", "Relative humidity 2 m (%), joined on the hour"),
-    ("weather_available", "metr_weather", "dq_flag", "1 if an hourly weather row existed for this timestamp"),
+    ("weather_available", "metr_weather", "dq_flag", "1 if a valid hourly weather row existed for this timestamp"),
+    ("weather_out_of_range", "metr_weather", "dq_flag", "1 if a weather value was out of range (set NaN)"),
+    ("holiday_available", "metr_calendar", "dq_flag", "1 if the calendar file was available (0 -> is_holiday defaulted to 0)"),
     ("is_holiday", "metr_calendar", "holiday", "1 if the date is a US holiday (joined on date); no match = valid 0"),
     ("y_now", "metr_la", "target", "Congestion class now (0 Low, 1 Moderate, 2 Severe)"),
     ("y", "metr_la", "target", "Congestion class 30 min ahead (target)"),
     ("usable", "integration", "dq_flag", "1 if all required features and the target are present (used for modelling)"),
 ]
+
+
+def source_manifests() -> dict[str, dict[str, str | None]]:
+    """Manifest path and ingested_at of each raw source, stored in the curated file's metadata (traceability)."""
+    out: dict[str, dict[str, str | None]] = {}
+    for name in ("metr_la", "metr_weather", "metr_calendar"):
+        path = project_path("data/raw") / name / "_manifest.json"
+        out[name] = {
+            "manifest": str(path.relative_to(project_path("."))),
+            "ingested_at": json.loads(path.read_text())["ingested_at"] if path.exists() else None,
+        }
+    return out
 
 
 def count_quarantined_weather() -> int:
@@ -73,7 +88,11 @@ def main() -> int:
 
     source_map = {c: {"source": src, "group": grp} for c, src, grp, _ in DATA_DICTIONARY}
     table = pa.Table.from_pandas(curated, preserve_index=False)
-    table = table.replace_schema_metadata({**(table.schema.metadata or {}), b"source_map": json.dumps(source_map).encode()})
+    table = table.replace_schema_metadata({
+        **(table.schema.metadata or {}),
+        b"source_map": json.dumps(source_map).encode(),
+        b"source_manifests": json.dumps(source_manifests()).encode(),
+    })
     CURATED.parent.mkdir(parents=True, exist_ok=True)
     pq.write_table(table, CURATED, compression="zstd")
 

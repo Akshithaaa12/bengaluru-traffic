@@ -32,35 +32,42 @@ def class_shap(values: np.ndarray | list, cls: int) -> np.ndarray:
     return values[cls] if isinstance(values, list) else values[:, :, cls]
 
 
-def main() -> int:
-    model = joblib.load(OUT / "models" / "best_model.pkl")["model"]
-    df, stats = build_dataset()
-    test = chronological_split(df, stats["n_timestamps"])["test"]
-    x = test[FEATURES].sample(n=SAMPLE, random_state=SEED)
+def make_shap_plots(model: object, x: pd.DataFrame, out_dir, label: str = "XGBoost") -> pd.DataFrame:
+    """TreeExplainer SHAP on ``x`` for the Severe class: writes shap_summary.png and shap_bar.png into ``out_dir``.
 
+    Returns the per-feature table (mean |SHAP| for Severe and across classes), sorted by Severe importance.
+    """
     values = shap.TreeExplainer(model).shap_values(x)
     sv = class_shap(values, SEVERE)
     all_classes = np.mean([np.abs(class_shap(values, c)).mean(axis=0) for c in range(len(CLASSES))], axis=0)
-
     top = pd.DataFrame({
-        "feature": FEATURES, "mean_abs_shap_severe": np.abs(sv).mean(axis=0), "mean_abs_shap_all_classes": all_classes,
+        "feature": list(x.columns), "mean_abs_shap_severe": np.abs(sv).mean(axis=0), "mean_abs_shap_all_classes": all_classes,
     }).sort_values("mean_abs_shap_severe", ascending=False)
     top["share_severe"] = top["mean_abs_shap_severe"] / top["mean_abs_shap_severe"].sum()
-    top.to_csv(OUT / "shap_top_features.csv", index=False)
 
     plt.figure()
     shap.summary_plot(sv, x, show=False, max_display=15)
-    plt.title("SHAP - Severe class (XGBoost, 2,000 test rows)")
+    plt.title(f"SHAP - Severe class ({label}, {len(x):,} test rows)")
     plt.tight_layout()
-    plt.savefig(OUT / "shap_summary.png", dpi=150)
+    plt.savefig(out_dir / "shap_summary.png", dpi=150)
     plt.close()
 
     plt.figure()
     shap.summary_plot(sv, x, plot_type="bar", show=False, max_display=15)
     plt.title("Mean |SHAP| - Severe class")
     plt.tight_layout()
-    plt.savefig(OUT / "shap_bar.png", dpi=150)
+    plt.savefig(out_dir / "shap_bar.png", dpi=150)
     plt.close()
+    return top
+
+
+def main() -> int:
+    model = joblib.load(OUT / "models" / "best_model.pkl")["model"]
+    df, stats = build_dataset()
+    test = chronological_split(df, stats["n_timestamps"])["test"]
+    x = test[FEATURES].sample(n=SAMPLE, random_state=SEED)
+    top = make_shap_plots(model, x, OUT)
+    top.to_csv(OUT / "shap_top_features.csv", index=False)
     log.info("SHAP done")
     return 0
 

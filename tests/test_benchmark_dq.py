@@ -56,12 +56,16 @@ def test_edge_gap_is_not_filled():
 
 def test_missing_by_source_has_one_row_per_check_and_pct():
     stats = {"raw_all_readings": 100, "raw_all_zero": 8, "readings": 40, "sensor_missing": 4, "interpolated": 1,
-             "still_nan": 3, "n_timestamps": 10, "weather_unavailable_rows": 0, "rows_total": 40, "rows_complete": 30}
+             "still_nan": 3, "n_timestamps": 10, "weather_unavailable_rows": 0, "rows_total": 40, "rows_complete": 30,
+             "speed_out_of_range": 2, "index_issues": {"non_monotonic": 0, "duplicate_timestamps": 1},
+             "weather_out_of_range": {"temperature_2m": 0}, "holiday_unavailable_rows": 0}
     ts = {"total": 10, "null": 0, "duplicated": 0, "irregular_steps": 0}
     df = dq.missing_by_source(stats, ts, 0, 207, {"temperature_2m": (24, 0)}, 0, 1)
     assert set(df["source"]) == {"metr_la", "metr_weather", "metr_calendar", "integration"}
     assert df.loc[df["check"].str.startswith("speed == 0, all"), "pct"].iloc[0] == 8.0
     assert df.loc[df["source"] == "integration", "missing_or_failed"].iloc[0] == 10
+    assert df.loc[df["check"] == "speed outside 0-100 mph", "missing_or_failed"].iloc[0] == 2
+    assert df.loc[df["check"].str.startswith("non-monotonic"), "missing_or_failed"].iloc[0] == 1
 
 
 # --- weather fetch: retry + quarantine ---------------------------------------------------

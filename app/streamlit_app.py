@@ -216,6 +216,18 @@ def tab_model() -> None:
                                title=f"Top features - mean |SHAP|, Severe class ({final})"),
                         width="stretch")
 
+    abl_path = BENCH / "ablation.csv"
+    if abl_path.exists():
+        st.subheader("Ablation: what does each source add?")
+        abl = load_csv("ablation.csv")[["variant", "removed_features", "n_features", "test_accuracy", "test_macro_f1",
+                                        "test_recall_severe", "delta_macro_f1", "delta_recall_severe"]]
+        st.dataframe(abl.style.format({c: "{:.4f}" for c in abl.columns if c.startswith(("test_", "delta_"))}),
+                     hide_index=True, width="stretch")
+        st.caption("XGBoost retrained with features removed; the final model is unchanged. Weather and holidays do not "
+                   "improve the metrics on this benchmark; see RESULTS.md.")
+    st.info("Experiment tracking: every model and ablation run is logged to MLflow (`./mlruns`, experiment "
+            "`metr_la_benchmark`). Run `mlflow ui` to view experiments.")
+
     st.subheader("SHAP (2,000 test rows, Severe class)")
     s1, s2 = st.columns(2)
     for col, name in ((s1, "shap_summary.png"), (s2, "shap_bar.png")):
@@ -281,6 +293,11 @@ def tab_dq() -> None:
     if missing_path.exists():
         st.subheader("Missing / failed records by source")
         st.dataframe(load_csv("missing_by_source.csv"), hide_index=True, width="stretch")
+
+    demo = BENCH / "fault_injection_demo.md"
+    if demo.exists():
+        with st.expander("Fault-injection demo: weather API outage + missing calendar file"):
+            st.markdown(demo.read_text(encoding="utf-8"))
 
     path = BENCH / "dq_summary.md"
     if not path.exists():
