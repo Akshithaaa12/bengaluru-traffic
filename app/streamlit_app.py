@@ -155,9 +155,10 @@ def tab_map() -> None:
     fig = px.scatter_map(
         now, lat="lat", lon="lon", color="predicted", color_discrete_map=COLORS,
         category_orders={"predicted": CLASSES}, hover_name="sensor_id", hover_data={"actual": True, "lat": False, "lon": False},
-        zoom=9.5, height=520, map_style="open-street-map",
+        center={"lat": float(now["lat"].mean()), "lon": float(now["lon"].mean())},
+        zoom=10, height=600, map_style="open-street-map",
     )
-    fig.update_traces(marker={"size": 14})
+    fig.update_traces(marker={"size": 12})
     fig.update_layout(margin={"l": 0, "r": 0, "t": 0, "b": 0}, legend_title_text="Predicted")
     left.plotly_chart(fig, width="stretch")
 
