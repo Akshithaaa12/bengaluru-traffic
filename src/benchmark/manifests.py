@@ -85,16 +85,19 @@ def calendar_manifest() -> dict[str, Any]:
 
 
 SOURCES = [
-    # name, format, ingestion, raw zone, key, granularity, why useful
-    ("METR-LA sensors", "HDF5 matrix + CSV + TXT", "File download (zip)", "data/raw/metr_la/",
-     "(sensor_id, timestamp_5min)", "5 min", "Target signal: speed per detector; locations/distances build the routing graph"),
-    ("Open-Meteo weather", "JSON (hourly arrays)", "REST API, retry x3 + quarantine", "data/raw/metr_weather/",
-     "hour (timestamp floored to 1 h)", "1 h", "Rain/temperature/humidity change speeds and congestion"),
-    ("US holidays", "CSV", "`holidays` library", "data/raw/metr_calendar/",
-     "date", "1 day", "Holiday traffic differs from normal weekdays"),
-    ("Bengaluru TomTom live collector", "JSON (gzip)", "REST API polled every 15 min (GitHub Actions)",
+    # name, format, ingestion, raw zone, key, granularity, why useful, role
+    ("Bengaluru TomTom live collector", "JSON (gzip)", "REST API polled every 15 min (GitHub Actions + cron-job.org)",
      "data/raw/traffic_api/", "(segment_key, timestamp_15min)", "15 min",
-     "Real target city data; collection in progress, not used by the benchmark"),
+     "Primary source: live congestion for the real target city (13 South-East Bengaluru segments)",
+     "Primary live source"),
+    ("METR-LA sensors", "HDF5 matrix + CSV + TXT", "File download (zip)", "data/raw/metr_la/",
+     "(sensor_id, timestamp_5min)", "5 min",
+     "Benchmark training data: 4 months of loop-detector speeds to validate the model (no public Indian sensor history exists); "
+     "locations/distances build the routing graph", "Benchmark training source"),
+    ("Open-Meteo weather", "JSON (hourly arrays)", "REST API, retry x3 + quarantine", "data/raw/metr_weather/",
+     "hour (timestamp floored to 1 h)", "1 h", "Rain/temperature/humidity can change speeds and congestion", "Benchmark feature source"),
+    ("US holidays", "CSV", "`holidays` library", "data/raw/metr_calendar/",
+     "date", "1 day", "Holiday traffic differs from normal weekdays", "Benchmark feature source"),
 ]
 
 FEATURES_BY_SOURCE = {
@@ -116,7 +119,7 @@ def write_markdown(manifests: dict[str, dict[str, Any]]) -> None:
            "The sources differ in format, granularity and key; they are kept separate in raw zones and only joined in the "
            "curated table.", "",
            "| Source | Format | Granularity | Integration key |", "|---|---|---|---|"]
-    out += [f"| {n} | {f} | {g} | {k} |" for n, f, _, _, k, g, _ in SOURCES]
+    out += [f"| {n} | {f} | {g} | {k} |" for n, f, _, _, k, g, _, _ in SOURCES]
     for name, m in manifests.items():
         out += ["", f"## {name}", "", f"Format: {m['format']}. Ingestion: {m['ingestion_method']}.", ""]
         for file, schema in m["schema"].items():
@@ -139,8 +142,8 @@ def main() -> int:
     counts = {"METR-LA sensors": "34,272 x 207 readings", "Open-Meteo weather": "2,856 hourly rows",
               "US holidays": "12 dates", "Bengaluru TomTom live collector": "13 segments / run"}
     pd.DataFrame(
-        [(n, f, i, z, k, g, w, counts[n]) for n, f, i, z, k, g, w in SOURCES],
-        columns=["source", "format", "ingestion", "raw_zone", "integration_key", "granularity", "why_useful", "records"],
+        [(n, r, f, i, z, k, g, w, counts[n]) for n, f, i, z, k, g, w, r in SOURCES],
+        columns=["source", "role", "format", "ingestion", "raw_zone", "integration_key", "granularity", "why_useful", "records"],
     ).to_csv(OUT / "sources.csv", index=False)
     write_markdown(manifests)
     return 0

@@ -41,7 +41,7 @@ def main() -> int:
     top10["mean_abs_shap_severe"] = top10["mean_abs_shap_severe"].astype(float)
     route = json.loads((BENCH / "routing_meta.json").read_text())
     n_live = len(list(LIVE.glob("*/run_*.json*")))
-    sources = pd.read_csv(BENCH / "sources.csv")[["source", "format", "ingestion", "raw_zone", "integration_key", "why_useful"]]
+    sources = pd.read_csv(BENCH / "sources.csv")[["source", "role", "format", "ingestion", "raw_zone", "integration_key", "why_useful"]]
     sources.loc[sources["source"].str.startswith("Bengaluru"), "why_useful"] += f" ({n_live} raw run files so far)"
     rules = pd.read_csv(BENCH / "dq_rules.csv")[["rule_id", "source", "field", "requirement", "detection", "handling"]]
     missing = pd.read_csv(BENCH / "missing_by_source.csv")

@@ -16,6 +16,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.utils.config import get_settings  # noqa: E402
 from src.utils.raw_io import read_raw_run  # noqa: E402
 
 BENCH = ROOT / "reports" / "benchmark"
@@ -31,14 +32,6 @@ st.set_page_config(page_title="Traffic Congestion Prediction", layout="wide")
 @st.cache_data
 def load_metrics() -> pd.DataFrame:
     return pd.read_csv(BENCH / "metrics.csv")
-
-
-@st.cache_data
-def load_predictions() -> pd.DataFrame:
-    df = pd.read_parquet(BENCH / "test_predictions.parquet")
-    df["actual"] = df["y_true"].map(dict(enumerate(CLASSES)))
-    df["predicted"] = df["y_pred"].map(dict(enumerate(CLASSES)))
-    return df
 
 
 @st.cache_data
@@ -108,8 +101,9 @@ def tab_overview() -> None:
     st.markdown(
         "Predict congestion level (**Low / Moderate / Severe**, from `speed_ratio = current speed / free-flow speed`) "
         "for road segments **30 minutes ahead**, then recommend congestion-aware routes versus plain "
-        "shortest-distance routes. The model is first benchmarked on the public **METR-LA** dataset; "
-        "the same pipeline is being applied to **Bengaluru** (South-East corridor) using live TomTom data."
+        "shortest-distance routes. The **primary live source** is the Bengaluru TomTom Traffic Flow API (South-East corridor); "
+        "because no public historical Indian sensor data exists, the model is validated on the public **METR-LA** "
+        "benchmark (the **benchmark training source**) and will be retrained on the Bengaluru data as it accumulates."
     )
 
     st.subheader("Pipeline flow")
@@ -148,45 +142,84 @@ def tab_overview() -> None:
     st.dataframe(snap, hide_index=True, width="stretch")
 
 
-def tab_map() -> None:
-    st.header("Congestion map (METR-LA, test set)")
-    path = BENCH / "test_predictions.parquet"
-    if not path.exists():
-        missing_notice(path, "Run `python -m src.benchmark.export_predictions`.")
+# --- Bengaluru live congestion ----------------------------------------------------------------
+
+def congestion_level(ratio: float, thresholds: dict[str, float]) -> str:
+    """Low >= low, Moderate in [severe, low), Severe < severe (thresholds from config/settings.yaml)."""
+    if ratio >= thresholds["low"]:
+        return "Low"
+    return "Moderate" if ratio >= thresholds["severe"] else "Severe"
+
+
+@st.cache_data(ttl=300)
+def load_live_history() -> pd.DataFrame:
+    """Every raw TomTom run joined with the segment metadata; one row per (snapshot, segment)."""
+    settings = get_settings()
+    thresholds = settings["thresholds"]
+    seg = pd.DataFrame(settings["segments"]).set_index("segment_key")
+    rows = []
+    for path in sorted(LIVE_DIR.glob("*/run_*.json*"), key=lambda p: p.name):
+        stamp = pd.to_datetime(path.name.split(".")[0].removeprefix("run_"), format="%Y%m%dT%H%MZ", utc=True)
+        for rec in read_raw_run(path):
+            flow = rec["response"]["flowSegmentData"]
+            cur, free = flow.get("currentSpeed"), flow.get("freeFlowSpeed")
+            if not free or cur is None or rec["segment_key"] not in seg.index:
+                continue
+            meta = seg.loc[rec["segment_key"]]
+            ratio = cur / free
+            rows.append({
+                "snapshot_utc": stamp, "snapshot_ist": stamp.tz_convert("Asia/Kolkata"), "segment": rec["segment_key"],
+                "name": meta["name"], "road": meta["osm_road_name"], "lat": meta["lat"], "lon": meta["lon"],
+                "currentSpeed": cur, "freeFlowSpeed": free, "speed_ratio": round(ratio, 3),
+                "confidence": flow.get("confidence"), "level": congestion_level(ratio, thresholds),
+            })
+    return pd.DataFrame(rows)
+
+
+def tab_live() -> None:
+    st.header("Bengaluru live congestion")
+    hist = load_live_history()
+    if hist.empty:
+        st.info("No TomTom snapshots found in `data/raw/traffic_api/` yet.")
         return
-    preds = load_predictions()
-    times = sorted(preds["time"].unique())
-    i = st.slider("Forecast origin (test set)", 0, len(times) - 1, len(times) // 2)
-    t = pd.Timestamp(times[i])
-    st.caption(
-        f"Features up to **{t:%Y-%m-%d %H:%M}** -> congestion predicted for **{t + pd.Timedelta(minutes=30):%H:%M}** "
-        "(30 min ahead). 'actual' is what was observed then."
-    )
-    now = preds[preds["time"] == t]
+    snaps = sorted(hist["snapshot_ist"].unique(), reverse=True)           # newest first = default
+    choice = st.selectbox("Snapshot (IST)", snaps, format_func=lambda t: pd.Timestamp(t).strftime("%Y-%m-%d %H:%M IST"))
+    now = hist[hist["snapshot_ist"] == choice]
 
-    left, right = st.columns([3, 1])
+    counts = now["level"].value_counts().reindex(["Low", "Moderate", "Severe"], fill_value=0)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Segments", len(now))
+    c2.metric("Low", int(counts["Low"]))
+    c3.metric("Moderate", int(counts["Moderate"]))
+    c4.metric("Severe", int(counts["Severe"]))
+
     fig = px.scatter_map(
-        now, lat="lat", lon="lon", color="predicted", color_discrete_map=COLORS,
-        category_orders={"predicted": CLASSES}, hover_name="sensor_id", hover_data={"actual": True, "lat": False, "lon": False},
+        now, lat="lat", lon="lon", color="level", color_discrete_map=COLORS, category_orders={"level": CLASSES},
+        hover_name="name",
+        hover_data={"road": True, "currentSpeed": True, "freeFlowSpeed": True, "speed_ratio": True, "confidence": True,
+                    "lat": False, "lon": False, "level": False},
         center={"lat": float(now["lat"].mean()), "lon": float(now["lon"].mean())},
-        zoom=10, height=600, map_style="open-street-map",
+        zoom=12, height=600, map_style="open-street-map",
     )
-    fig.update_traces(marker={"size": 12})
-    fig.update_layout(margin={"l": 0, "r": 0, "t": 0, "b": 0}, legend_title_text="Predicted")
-    left.plotly_chart(fig, width="stretch")
+    fig.update_traces(marker={"size": 14})
+    fig.update_layout(margin={"l": 0, "r": 0, "t": 0, "b": 0}, legend_title_text="Congestion")
+    st.plotly_chart(fig, width="stretch")
 
-    counts = pd.concat([
-        now["predicted"].value_counts().reindex(CLASSES, fill_value=0).rename("Predicted"),
-        now["actual"].value_counts().reindex(CLASSES, fill_value=0).rename("Actual"),
-    ], axis=1).reset_index(names="level").melt("level", var_name="series", value_name="sensors")
-    bar = px.bar(counts, x="level", y="sensors", color="series", barmode="group", height=300,
-                 category_orders={"level": CLASSES}, color_discrete_sequence=["#4c78a8", "#9aa5b1"])
-    right.plotly_chart(bar, width="stretch")
-    right.caption(f"{len(now)} sensors with a complete record at this time.")
+    st.subheader("Segments at this snapshot")
+    table = now[["name", "road", "currentSpeed", "freeFlowSpeed", "speed_ratio", "level", "confidence"]]
+    st.dataframe(table.sort_values("speed_ratio"), hide_index=True, width="stretch")
+
+    st.subheader("Speed ratio over time")
+    line = px.line(hist.sort_values("snapshot_ist"), x="snapshot_ist", y="speed_ratio", color="name", markers=True,
+                   height=420, labels={"snapshot_ist": "Time (IST)", "speed_ratio": "speed_ratio (current / free-flow)"})
+    st.plotly_chart(line, width="stretch")
+    st.caption("Live data: TomTom Traffic Flow API, every 15 min (GitHub Actions + cron-job.org).")
 
 
 def tab_model() -> None:
-    st.header("Model results")
+    st.header("Model validation (METR-LA benchmark)")
+    st.info("No public historical Indian traffic-sensor data exists, so the model is validated on the METR-LA benchmark. "
+            "It will be retrained on the Bengaluru data being collected.")
     if not (BENCH / "metrics.csv").exists():
         missing_notice(BENCH / "metrics.csv", "Run `python -m src.benchmark.run`.")
         return
@@ -249,7 +282,7 @@ def tab_model() -> None:
 
 
 def tab_routing() -> None:
-    st.header("Route optimization (METR-LA sensor graph)")
+    st.header("Route optimization (METR-LA benchmark)")
     results = BENCH / "routing_results.csv"
     example = BENCH / "routing_example.png"
     if not results.exists():
@@ -281,7 +314,7 @@ def tab_routing() -> None:
 
 
 def tab_dq() -> None:
-    st.header("Data quality")
+    st.header("Data quality (METR-LA benchmark)")
     rules_path, missing_path = BENCH / "dq_rules.csv", BENCH / "missing_by_source.csv"
     if rules_path.exists():
         st.subheader("DQ rules")
@@ -317,7 +350,10 @@ def tab_dq() -> None:
                            labels={"count": "rows", "item": ""}, height=380), width="stretch")
 
 
-tabs = st.tabs(["Overview", "Congestion Map", "Model Results", "Route Optimization", "Data Quality"])
-for tab, render in zip(tabs, (tab_overview, tab_map, tab_model, tab_routing, tab_dq)):
+tabs = st.tabs([
+    "Overview", "Bengaluru Live Congestion", "Model Validation (METR-LA benchmark)",
+    "Route Optimization (METR-LA benchmark)", "Data Quality (METR-LA benchmark)",
+])
+for tab, render in zip(tabs, (tab_overview, tab_live, tab_model, tab_routing, tab_dq)):
     with tab:
         render()

@@ -22,12 +22,12 @@ routing. This benchmark validates the pipeline on a public dataset while Bengalu
 
 ## Data sources (kept separate in raw zones)
 
-| source | format | ingestion | raw_zone | integration_key | why_useful |
-|---|---|---|---|---|---|
-| METR-LA sensors | HDF5 matrix + CSV + TXT | File download (zip) | data/raw/metr_la/ | (sensor_id, timestamp_5min) | Target signal: speed per detector; locations/distances build the routing graph |
-| Open-Meteo weather | JSON (hourly arrays) | REST API, retry x3 + quarantine | data/raw/metr_weather/ | hour (timestamp floored to 1 h) | Rain/temperature/humidity change speeds and congestion |
-| US holidays | CSV | `holidays` library | data/raw/metr_calendar/ | date | Holiday traffic differs from normal weekdays |
-| Bengaluru TomTom live collector | JSON (gzip) | REST API polled every 15 min (GitHub Actions) | data/raw/traffic_api/ | (segment_key, timestamp_15min) | Real target city data; collection in progress, not used by the benchmark (5 raw run files so far) |
+| source | role | format | ingestion | raw_zone | integration_key | why_useful |
+|---|---|---|---|---|---|---|
+| Bengaluru TomTom live collector | Primary live source | JSON (gzip) | REST API polled every 15 min (GitHub Actions + cron-job.org) | data/raw/traffic_api/ | (segment_key, timestamp_15min) | Primary source: live congestion for the real target city (13 South-East Bengaluru segments) (6 raw run files so far) |
+| METR-LA sensors | Benchmark training source | HDF5 matrix + CSV + TXT | File download (zip) | data/raw/metr_la/ | (sensor_id, timestamp_5min) | Benchmark training data: 4 months of loop-detector speeds to validate the model (no public Indian sensor history exists); locations/distances build the routing graph |
+| Open-Meteo weather | Benchmark feature source | JSON (hourly arrays) | REST API, retry x3 + quarantine | data/raw/metr_weather/ | hour (timestamp floored to 1 h) | Rain/temperature/humidity can change speeds and congestion |
+| US holidays | Benchmark feature source | CSV | `holidays` library | data/raw/metr_calendar/ | date | Holiday traffic differs from normal weekdays |
 
 ### Schema differences
 

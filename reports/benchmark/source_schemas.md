@@ -4,10 +4,10 @@ The sources differ in format, granularity and key; they are kept separate in raw
 
 | Source | Format | Granularity | Integration key |
 |---|---|---|---|
+| Bengaluru TomTom live collector | JSON (gzip) | 15 min | (segment_key, timestamp_15min) |
 | METR-LA sensors | HDF5 matrix + CSV + TXT | 5 min | (sensor_id, timestamp_5min) |
 | Open-Meteo weather | JSON (hourly arrays) | 1 h | hour (timestamp floored to 1 h) |
 | US holidays | CSV | 1 day | date |
-| Bengaluru TomTom live collector | JSON (gzip) | 15 min | (segment_key, timestamp_15min) |
 
 ## metr_la
 
